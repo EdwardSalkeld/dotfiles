@@ -1,0 +1,13 @@
+#/usr/bin/env bash
+
+# notes window
+tmux rename-window -t "1" "main"
+
+# music window
+tmux new-window -n "music" 
+tmux send-keys -t "music" "ncmpcpp" C-m
+
+
+
+
+

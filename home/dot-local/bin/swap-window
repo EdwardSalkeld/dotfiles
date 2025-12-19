@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [[ -z $TMUX ]]; then
+  echo "Not running tmux!"
+  exit 1
+fi
+
+tmux list-windows -F '#{window_name}' | fzf --tmux | xargs tmux select-window -t

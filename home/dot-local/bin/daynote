@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# get the date
+dt=$(date +"%Y%m%d")
+
+# grab args as one string
+nvim ~/personal/notes/daynotes/$dt.md

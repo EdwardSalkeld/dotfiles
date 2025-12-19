@@ -1,0 +1,6 @@
+cmd + fn - f1 : open -a "Ghostty"
+cmd + fn - f2 : open -a "Firefox"
+cmd + fn - f3 : open -a "Microsoft Outlook"
+cmd + fn - f4 : open -a "Slack"
+cmd + fn - f5 : open -a "Linear"
+cmd - a : echo "Command+A pressed"

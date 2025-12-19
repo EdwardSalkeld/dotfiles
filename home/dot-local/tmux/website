@@ -1,0 +1,25 @@
+#/usr/bin/env bash
+
+# code window
+tmux rename-window -t "1" "code"
+tmux send-keys -t "code" "nvim ." C-m
+
+# git window
+tmux new-window -n "git" 
+tmux send-keys -t "git" "lazygit" C-m
+
+# npm window
+tmux new-window -n "npm"
+tmux send-keys -t "npm" "npm run watch" C-m
+
+# docker window
+tmux new-window -n "docker"
+tmux send-keys -t "docker" "dcw up django" C-m
+
+# cmd window
+tmux new-window -n "cmd"
+
+
+
+
+

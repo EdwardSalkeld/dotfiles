@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+session=$(tmux display-message -p '#S')
+echo "This is a new $session instance"
+session_file="$HOME/.local/tmux/$session"
+if [[ -f $session_file ]]; then
+  $session_file
+else
+  $HOME/.local/tmux/default
+fi

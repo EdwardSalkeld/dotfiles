@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Script to display SSL/TLS certificate information for a given domain
+# Usage: cert-show [--pem] <domain> [port]
+
+set -e
+
+PEM_MODE=false
+
+# Parse flags
+if [ "$1" = "--pem" ]; then
+    PEM_MODE=true
+    shift
+fi
+
+if [ $# -eq 0 ]; then
+    echo "Usage: cert-show [--pem] <domain> [port]"
+    echo "Example: cert-show www.example.com"
+    echo "Example: cert-show www.example.com 8443"
+    echo "Example: cert-show --pem www.example.com > cert.pem"
+    exit 1
+fi
+
+DOMAIN="$1"
+PORT="${2:-443}"
+
+if [ "$PEM_MODE" = true ]; then
+    echo | openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:${PORT}" 2>/dev/null | openssl x509
+else
+    echo "Fetching certificate for ${DOMAIN}:${PORT}..."
+    echo ""
+    echo | openssl s_client -servername "$DOMAIN" -connect "${DOMAIN}:${PORT}" 2>/dev/null | openssl x509 -noout -text
+fi

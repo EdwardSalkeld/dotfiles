@@ -1,0 +1,30 @@
+#/usr/bin/env bash
+
+session="website"
+start_dir="$HOME/code/website/"
+tmux new-session -d -s $session -c "$start_dir"
+
+# code window
+tmux rename-window -t "$session:1" "code"
+tmux send-keys -t "code" "nvim ." C-m
+
+# git window
+tmux new-window -t $session -n "git" -c "$start_dir"
+tmux send-keys -t "$session:git" "lazygit" C-m
+
+# npm window
+tmux new-window -t $session -n "npm" -c "$start_dir"
+tmux send-keys -t "$session:npm" "npm run watch" C-m
+
+# docker window
+tmux new-window -t $session -n "docker" -c "$start_dir"
+tmux send-keys -t "$session:docker" "dcw up django django_de" C-m
+
+# cmd window
+tmux new-window -t $session -n "cmd" -c "$start_dir"
+
+tmux attach -t=$session
+
+
+
+

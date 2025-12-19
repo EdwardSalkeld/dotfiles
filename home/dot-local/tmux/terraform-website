@@ -1,0 +1,14 @@
+#/usr/bin/env bash
+
+# code window
+tmux rename-window -t "1" "code"
+tmux send-keys -t "code" "nvim ." C-m
+
+# cmd window
+tmux new-window -n "cmd"
+
+
+
+
+
+

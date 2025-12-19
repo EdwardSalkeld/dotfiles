@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# get the date
+dt=$(date +"%Y%m%d-%H%M")
+
+# grab args as one string
+title=$(echo "$@" | tr ' ' '-')
+nvim ~/notes/inbox/$dt-$title.md
