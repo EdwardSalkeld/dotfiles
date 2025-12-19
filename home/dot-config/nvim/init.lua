@@ -540,11 +540,6 @@ require('lazy').setup({
       -- Allows extra capabilities provided by nvim-cmp
       'hrsh7th/cmp-nvim-lsp',
     },
-    opts = {
-      servers = {
-        pyright = {},
-      },
-    },
     config = function()
       -- Brief aside: **What is LSP?**
       --
@@ -582,28 +577,6 @@ require('lazy').setup({
 
       vim.lsp.enable 'ty'
       vim.lsp.enable 'biome'
-
-      vim.lsp.config('basepyright', {
-        cmd = { 'basedpyright-langserver', '--stdio' },
-        filetypes = { 'python' },
-        init_options = {
-          settings = {
-            basedpyright = {
-              analysis = {
-                typeCheckingMode = 'off',
-                diagnosticSeverityOverrides = {
-                  autoSearchPaths = false,
-                  enableTypeIgnoreComments = false,
-                  reportGeneralTypeIssues = 'none',
-                  reportArgumentType = 'none',
-                  reportUnknownMemberType = 'none',
-                  reportAssignmentType = 'none',
-                },
-              },
-            },
-          },
-        },
-      })
 
       --  This function gets run when an LSP attaches to a particular buffer.
       --    That is to say, every time a new file is opened that is associated with
