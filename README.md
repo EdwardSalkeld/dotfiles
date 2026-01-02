@@ -5,5 +5,14 @@
 - Run up script to link dotfiles into place
 
 ## Linux Setup
-- TBC
+
+### Debian/Ubuntu
+```bash
+./setup-debian.sh
+```
+
+### Arch Linux
+```bash
+./setup-arch.sh
+```
 
