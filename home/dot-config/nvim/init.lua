@@ -174,6 +174,12 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
+-- Toggle spell checking
+vim.keymap.set('n', '<leader>ts', function()
+  vim.wo.spell = not vim.wo.spell
+  print('Spell: ' .. (vim.wo.spell and 'on' or 'off'))
+end, { desc = '[T]oggle [S]pell check' })
+
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
 -- is not what someone will guess without a bit more experience.
@@ -227,6 +233,16 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.bo.shiftwidth = 2 -- Indent width for >> and <<
     vim.bo.tabstop = 2 -- Width of tab character
     vim.bo.softtabstop = 2 -- Spaces inserted when pressing Tab
+  end,
+})
+
+-- Enable spell checking for text-heavy filetypes
+vim.api.nvim_create_autocmd('FileType', {
+  desc = 'Enable spell checking for text files',
+  group = vim.api.nvim_create_augroup('spell-check', { clear = true }),
+  pattern = { 'markdown', 'gitcommit', 'text' },
+  callback = function()
+    vim.wo.spell = true
   end,
 })
 
@@ -932,6 +948,8 @@ require('lazy').setup({
       'hrsh7th/cmp-nvim-lsp',
       'hrsh7th/cmp-path',
       'hrsh7th/cmp-nvim-lsp-signature-help',
+      'hrsh7th/cmp-buffer',
+      'hrsh7th/cmp-cmdline',
     },
     config = function()
       -- See `:help cmp`
@@ -1006,13 +1024,26 @@ require('lazy').setup({
             -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
             group_index = 0,
           },
-          { name = 'copilot' },
+          { name = 'copilot' }, -- only active after :CopilotEnable
           { name = 'nvim_lsp' },
           { name = 'luasnip' },
           { name = 'path' },
           { name = 'nvim_lsp_signature_help' },
+          { name = 'buffer' },
         },
       }
+
+      -- Completions for / search
+      cmp.setup.cmdline('/', {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = { { name = 'buffer' } },
+      })
+
+      -- Completions for : commands
+      cmp.setup.cmdline(':', {
+        mapping = cmp.mapping.preset.cmdline(),
+        sources = cmp.config.sources({ { name = 'path' } }, { { name = 'cmdline' } }),
+      })
     end,
   },
 

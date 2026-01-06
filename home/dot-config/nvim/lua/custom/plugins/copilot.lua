@@ -1,27 +1,20 @@
+-- Copilot - lazy loaded on demand via :CopilotEnable
+-- Uses ~900MB per instance, so only enable when you really need it
 return {
   {
     'zbirenbaum/copilot.lua',
-    event = 'InsertEnter',
+    cmd = 'CopilotEnable', -- only load when this command is run
     config = function()
       require('copilot').setup {
         suggestion = { enabled = false },
-        panel = { enabled = false }, -- suggestion = {
-        --   auto_trigger = true,
-        -- },
+        panel = { enabled = false },
       }
+      require('copilot_cmp').setup()
+      print 'Copilot enabled'
     end,
-    -- 'olimorris/codecompanion.nvim',
-    -- event = 'InsertEnter',
-    -- opts = {},
-    -- dependencies = {
-    --   'nvim-lua/plenary.nvim',
-    --   'nvim-treesitter/nvim-treesitter',
-    -- },
   },
   {
     'zbirenbaum/copilot-cmp',
-    config = function()
-      require('copilot_cmp').setup()
-    end,
+    lazy = true, -- loaded by copilot.lua config above
   },
 }
