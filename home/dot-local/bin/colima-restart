@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Restart Colima after reboot or when it fails to start due to stale state files
+# Use this instead of 'colima destroy' to preserve your VM and data
+
+colima stop --force && colima start
