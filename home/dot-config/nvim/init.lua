@@ -915,7 +915,7 @@ require('lazy').setup({
     'saghen/blink.cmp',
     version = '1.*',
     dependencies = {
-      -- Snippet support (blink has built-in snippet expansion, but LuaSnip provides more features)
+      -- Snippet support with friendly-snippets library
       {
         'L3MON4D3/LuaSnip',
         version = '2.*',
@@ -925,6 +925,13 @@ require('lazy').setup({
           end
           return 'make install_jsregexp'
         end)(),
+        dependencies = {
+          'rafamadriz/friendly-snippets',
+        },
+        config = function()
+          -- Load snippets from friendly-snippets
+          require('luasnip.loaders.from_vscode').lazy_load()
+        end,
       },
       -- Lazydev source for blink
       { 'saghen/blink.compat', version = '*', opts = {} },
