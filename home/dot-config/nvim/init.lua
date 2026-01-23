@@ -929,62 +929,62 @@ require('lazy').setup({
       -- Lazydev source for blink
       { 'saghen/blink.compat', version = '*', opts = {} },
     },
-    opts = {
-      keymap = {
-        preset = 'none', -- Don't use preset, define custom keymaps
-        ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
-        ['<C-e>'] = { 'hide' },
-        ['<C-y>'] = { 'select_and_accept' },
-        ['<Tab>'] = { 'select_and_accept', 'fallback' },
-        ['<C-p>'] = { 'select_prev', 'fallback_to_mappings' },
-        ['<C-n>'] = { 'select_next', 'fallback_to_mappings' },
-        ['<C-b>'] = { 'scroll_documentation_up', 'fallback' },
-        ['<C-f>'] = { 'scroll_documentation_down', 'fallback' },
-        -- Snippet navigation
-        ['<C-l>'] = { 'snippet_forward', 'fallback' },
-        ['<C-h>'] = { 'snippet_backward', 'fallback' },
-      },
+    config = function()
+      require('blink.cmp').setup {
+        keymap = {
+          preset = 'none', -- Don't use preset, define custom keymaps
+          ['<C-space>'] = { 'show' }, -- Manually trigger completion
+          ['<C-e>'] = { 'cancel', 'fallback' }, -- Dismiss completion
+          ['<C-y>'] = { 'select_and_accept' },
+          ['<Tab>'] = { 'select_and_accept', 'fallback' },
+          ['<C-p>'] = { 'select_prev', 'fallback' },
+          ['<C-n>'] = { 'select_next', 'fallback' },
+          ['<C-d>'] = { 'show_documentation', 'hide_documentation' }, -- Toggle docs
+          ['<C-b>'] = { 'scroll_documentation_up', 'fallback' },
+          ['<C-f>'] = { 'scroll_documentation_down', 'fallback' },
+          -- Snippet navigation (only works inside an active snippet)
+          ['<C-l>'] = { 'snippet_forward', 'fallback' },
+        },
 
-      appearance = {
-        nerd_font_variant = 'mono',
-      },
+        appearance = {
+          nerd_font_variant = 'mono',
+        },
 
-      completion = {
-        accept = { auto_brackets = { enabled = true } },
-        menu = { auto_show = true },
-        documentation = { auto_show = true, auto_show_delay_ms = 200 },
-        -- Show ghost text preview of completion
-        ghost_text = { enabled = false },
-      },
+        completion = {
+          accept = { auto_brackets = { enabled = true } },
+          menu = { auto_show = true },
+          documentation = { auto_show = true, auto_show_delay_ms = 200 },
+          ghost_text = { enabled = false },
+        },
 
-      sources = {
-        default = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer' },
-        providers = {
-          lazydev = {
-            name = 'LazyDev',
-            module = 'lazydev.integrations.blink',
-            score_offset = 100, -- show at a higher priority than lsp
+        sources = {
+          default = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer' },
+          providers = {
+            lazydev = {
+              name = 'LazyDev',
+              module = 'lazydev.integrations.blink',
+              score_offset = 100,
+            },
           },
         },
-        -- Cmdline completions
-        cmdline = function()
-          local type = vim.fn.getcmdtype()
-          if type == '/' or type == '?' then
-            return { 'buffer' }
-          end
-          if type == ':' then
-            return { 'cmdline' }
-          end
-          return {}
-        end,
-      },
 
-      snippets = { preset = 'luasnip' },
+        cmdline = {
+          sources = function()
+            local type = vim.fn.getcmdtype()
+            if type == '/' or type == '?' then
+              return { 'buffer' }
+            end
+            if type == ':' then
+              return { 'cmdline' }
+            end
+            return {}
+          end,
+        },
 
-      -- Use signature help from LSP
-      signature = { enabled = true },
-    },
-    opts_extend = { 'sources.default' },
+        snippets = { preset = 'luasnip' },
+        signature = { enabled = true },
+      }
+    end,
   },
 
   { -- You can easily change to a different colorscheme.
