@@ -1,20 +1,28 @@
--- Copilot - lazy loaded on demand via :CopilotEnable
--- Uses ~900MB per instance, so only enable when you really need it
+-- Copilot - lazy loaded on InsertEnter
+-- With blink.cmp, we use copilot's native inline suggestion mode
 return {
   {
     'zbirenbaum/copilot.lua',
-    cmd = 'CopilotEnable', -- only load when this command is run
+    event = 'InsertEnter', -- Load when first entering insert mode
     config = function()
+      -- Style copilot suggestions as light grey
+      vim.api.nvim_set_hl(0, 'CopilotSuggestion', { fg = '#808080', italic = true })
+
       require('copilot').setup {
-        suggestion = { enabled = false },
+        suggestion = {
+          enabled = true,
+          auto_trigger = true,
+          keymap = {
+            accept = '<C-k>', -- Ctrl+k to accept full suggestion
+            accept_word = '<C-h>', -- Ctrl+h to accept word
+            accept_line = '<C-j>', -- Ctrl+j to accept line
+            next = '<C-]>',
+            prev = '<C-\\>', -- Note: <C-[> is same as Esc!
+            dismiss = '<C-e>',
+          },
+        },
         panel = { enabled = false },
       }
-      require('copilot_cmp').setup()
-      print 'Copilot enabled'
     end,
-  },
-  {
-    'zbirenbaum/copilot-cmp',
-    lazy = true, -- loaded by copilot.lua config above
   },
 }

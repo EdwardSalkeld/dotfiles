@@ -1,0 +1,3 @@
+- please use 'docker compose' instead of docker-compose
+- Always follow the `commit-style` skill when creating git commits.
+- Always use the `pr` skill when creating pull requests.
