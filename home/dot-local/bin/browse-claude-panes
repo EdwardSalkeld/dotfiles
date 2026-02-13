@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# Browse Claude instances in a telescope-style two-pane view.
+# Left pane: list of Claude panes with status.
+# Right pane: live preview of the selected pane's terminal content.
+
+set -euo pipefail
+
+if ! tmux info &>/dev/null; then
+  echo "Error: tmux server not running" >&2
+  exit 1
+fi
+
+# Check if a claude process has active (recently-spawned) child processes.
+has_active_children() {
+  local claude_pid="$1"
+
+  pgrep -P "$claude_pid" 2>/dev/null | while read -r child; do
+    local comm elapsed
+    comm=$(ps -p "$child" -o comm= 2>/dev/null) || continue
+    [[ "$comm" == "caffeinate" ]] && continue
+
+    elapsed=$(ps -p "$child" -o etime= 2>/dev/null | tr -d ' ') || continue
+    if [[ "$elapsed" == *-* ]] || [[ "$elapsed" == *:*:*:* ]]; then
+      continue
+    fi
+    if [[ "$elapsed" =~ ^[0-9]+:[0-9]+:[0-9]+$ ]]; then
+      local hours="${elapsed%%:*}"
+      [[ "$hours" -gt 0 ]] && continue
+    fi
+    if [[ "$elapsed" =~ ^([0-9]+):([0-9]+)$ ]]; then
+      local mins="${BASH_REMATCH[1]}"
+      [[ "$mins" -ge 1 ]] && continue
+    fi
+
+    echo "busy"
+    return 0
+  done
+  return 1
+}
+
+# Determine the status of a Claude instance.
+get_claude_status() {
+  local claude_pid="$1"
+  local pane="$2"
+
+  if [[ -n "$(has_active_children "$claude_pid")" ]]; then
+    echo "working"
+    return
+  fi
+
+  local content
+  content=$(tmux capture-pane -t "$pane" -p -J -S -10 2>/dev/null) || { echo "waiting"; return; }
+
+  if echo "$content" | grep -qE 'Do you want to proceed|Would you like to proceed|Allow .+\(Y\)'; then
+    echo "wait"
+  else
+    echo "waiting"
+  fi
+}
+
+# Coloured status tag (fixed 12-char visible width for column alignment)
+status_tag() {
+  case "$1" in
+    working) printf '\033[33m⟳ busy      \033[0m' ;;
+    wait)    printf '\033[31m⏸ wait      \033[0m' ;;
+    waiting) printf '\033[32m● idle      \033[0m' ;;
+    *)       printf '%-12s' "$1" ;;
+  esac
+}
+
+# Collect Claude panes (deduplicated) and print as formatted lines.
+collect_claude_panes() {
+  local pane_list claude_panes="" seen=""
+  pane_list=$(tmux list-panes -a -F '#{pane_pid}|#{session_name}:#{window_index}.#{pane_index}|#{pane_current_path}')
+
+  for claude_pid in $(pgrep -x claude 2>/dev/null); do
+    local ppid
+    ppid=$(ps -p "$claude_pid" -o ppid= 2>/dev/null | tr -d ' ') || continue
+
+    local check_pid="$ppid"
+    while [[ -n "$check_pid" && "$check_pid" != "1" ]]; do
+      local match
+      match=$(echo "$pane_list" | while IFS='|' read -r pane_pid ident path; do
+        if [[ "$pane_pid" == "$check_pid" ]]; then echo "${ident}|${path}"; return; fi
+      done)
+      if [[ -n "$match" ]]; then
+        local ident="${match%%|*}"
+        case "$seen" in
+          *"|${ident}|"*) ;;
+          *)
+            seen="${seen}|${ident}|"
+            local path="${match#*|}" dir status tag line
+            dir=$(basename "$path")
+            status=$(get_claude_status "$claude_pid" "$ident")
+            tag=$(status_tag "$status")
+            line=$(printf '%s\t%b  %-20s  %s' "$dir" "$tag" "$dir" "$ident")
+            if [[ -n "$claude_panes" ]]; then
+              claude_panes="${claude_panes}"$'\n'"${line}"
+            else
+              claude_panes="${line}"
+            fi
+            ;;
+        esac
+        break
+      fi
+      check_pid=$(ps -p "$check_pid" -o ppid= 2>/dev/null | tr -d ' ') || break
+    done
+  done
+
+  # Sort by project name (tab-prefixed key), then strip the sort key
+  echo "$claude_panes" | sort -t$'\t' -k1,1 | cut -f2-
+}
+
+# When called with --list, just output the pane list (used by fzf reload).
+if [[ "${1:-}" == "--list" ]]; then
+  collect_claude_panes
+  exit 0
+fi
+
+# When called with --preview PANE, output pane content with trailing blanks stripped.
+# This prevents fzf's follow mode from scrolling past content to empty terminal rows.
+if [[ "${1:-}" == "--preview" ]]; then
+  tmux capture-pane -e -t "$2" -p -S -500 2>/dev/null | awk '
+    {
+      lines[NR] = $0
+      clean = $0
+      gsub(/\033\[[0-9;]*[a-zA-Z]/, "", clean)
+      gsub(/[[:space:]]/, "", clean)
+      if (clean != "") last = NR
+    }
+    END { for (i = 1; i <= last; i++) print lines[i] }
+  '
+  exit 0
+fi
+
+claude_panes=$(collect_claude_panes)
+
+if [[ -z "$claude_panes" ]]; then
+  echo "No Claude instances found in tmux panes."
+  exit 0
+fi
+
+# Column header (aligned with pointer offset + fixed-width status tag)
+col_header=$(printf '  \033[2m%-14s%-22s%s\033[0m\n  \033[2mctrl-r: refresh · enter: switch to pane\033[0m' "STATUS" "PROJECT" "PANE")
+self="${BASH_SOURCE[0]:-$0}"
+
+# Preview command: capture pane content via --preview helper (strips trailing blank lines).
+# The pane identifier is the last double-space-separated field in each line.
+preview_cmd="$self"' --preview "$(echo {} | sed "s/.*  //")"'
+
+selected=$(echo "$claude_panes" | fzf \
+  --tmux 90%,80% \
+  --ansi \
+  --no-multi \
+  --prompt="Claude > " \
+  --header="$col_header" \
+  --preview "$preview_cmd" \
+  --preview-window="down:60%:wrap:follow:border-top" \
+  --border=rounded \
+  --border-label=" Claude Instances " \
+  --border-label-pos=2 \
+  --padding=1,0 \
+  --pointer="▶" \
+  --color='border:#585858,label:bold:#e0af68,header:#565f89,prompt:#bb9af7,pointer:#f7768e,hl:#9ece6a,hl+:#9ece6a' \
+  --bind "ctrl-r:reload($self --list)" \
+) || exit 0
+
+# Extract the pane identifier (last double-space-separated field)
+target="${selected##*  }"
+
+# Switch to the target pane
+if [[ -z "${TMUX:-}" ]]; then
+  tmux attach -t "$target"
+else
+  tmux switch-client -t "$target"
+fi
