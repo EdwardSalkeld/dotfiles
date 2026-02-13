@@ -5,6 +5,11 @@
 
 set -euo pipefail
 
+CHECK_STATE=false
+for arg in "$@"; do
+  [[ "$arg" == "--check-state" ]] && CHECK_STATE=true
+done
+
 if ! tmux info &>/dev/null; then
   echo "Error: tmux server not running" >&2
   exit 1
@@ -64,6 +69,7 @@ status_tag() {
     working) printf '\033[33m⟳ busy      \033[0m' ;;
     wait)    printf '\033[31m⏸ wait      \033[0m' ;;
     waiting) printf '\033[32m● idle      \033[0m' ;;
+    unknown) printf '\033[2m  —         \033[0m' ;;
     *)       printf '%-12s' "$1" ;;
   esac
 }
@@ -91,7 +97,11 @@ collect_claude_panes() {
             seen="${seen}|${ident}|"
             local path="${match#*|}" dir status tag line
             dir=$(basename "$path")
-            status=$(get_claude_status "$claude_pid" "$ident")
+            if [[ "$CHECK_STATE" == true ]]; then
+              status=$(get_claude_status "$claude_pid" "$ident")
+            else
+              status="unknown"
+            fi
             tag=$(status_tag "$status")
             line=$(printf '%s\t%b  %-20s  %s' "$dir" "$tag" "$dir" "$ident")
             if [[ -n "$claude_panes" ]]; then
@@ -117,6 +127,10 @@ if [[ "${1:-}" == "--list" ]]; then
   exit 0
 fi
 
+# Build flag string to propagate to sub-invocations.
+propagate_flags=""
+[[ "$CHECK_STATE" == true ]] && propagate_flags="--check-state"
+
 # When called with --preview PANE, output pane content with trailing blanks stripped.
 # This prevents fzf's follow mode from scrolling past content to empty terminal rows.
 if [[ "${1:-}" == "--preview" ]]; then
@@ -141,7 +155,11 @@ if [[ -z "$claude_panes" ]]; then
 fi
 
 # Column header (aligned with pointer offset + fixed-width status tag)
-col_header=$(printf '  \033[2m%-14s%-22s%s\033[0m\n  \033[2mctrl-r: refresh · enter: switch to pane\033[0m' "STATUS" "PROJECT" "PANE")
+if [[ "$CHECK_STATE" == true ]]; then
+  col_header=$(printf '  \033[2m%-14s%-22s%s\033[0m\n  \033[2mctrl-r: refresh · enter: switch to pane\033[0m' "STATUS" "PROJECT" "PANE")
+else
+  col_header=$(printf '  \033[2m%-14s%-22s%s\033[0m\n  \033[2mctrl-r: refresh · enter: switch to pane\033[0m' "" "PROJECT" "PANE")
+fi
 self="${BASH_SOURCE[0]:-$0}"
 
 # Preview command: capture pane content via --preview helper (strips trailing blank lines).
@@ -162,7 +180,7 @@ selected=$(echo "$claude_panes" | fzf \
   --padding=1,0 \
   --pointer="▶" \
   --color='border:#585858,label:bold:#e0af68,header:#565f89,prompt:#bb9af7,pointer:#f7768e,hl:#9ece6a,hl+:#9ece6a' \
-  --bind "ctrl-r:reload($self --list)" \
+  --bind "ctrl-r:reload($self --list $propagate_flags)" \
 ) || exit 0
 
 # Extract the pane identifier (last double-space-separated field)
