@@ -6,7 +6,8 @@ return {
     config = function()
       local lint = require 'lint'
       lint.linters_by_ft = {
-        markdown = { 'markdownlint-cli2' },
+        -- markdown linting disabled; formatting still handled by conform.nvim
+        -- markdown = { 'markdownlint-cli2' },
         dockerfile = { 'hadolint' },
         terraform = { 'tflint' },
       }
