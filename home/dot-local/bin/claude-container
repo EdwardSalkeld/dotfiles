@@ -1,0 +1,35 @@
+#!/bin/bash
+
+IMAGE_NAME="claude-code"
+DOCKERFILE_DIR="$HOME/.local/docker/claude-code"
+CONTAINER_CONFIG="$HOME/.local/claude-container"
+
+docker build -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
+
+# Seed container config from host settings on first run
+if [ ! -d "$CONTAINER_CONFIG" ]; then
+  echo "Seeding container config from ~/.claude..."
+  cp -r "$HOME/.claude" "$CONTAINER_CONFIG"
+  cp "$HOME/.claude.json" "$CONTAINER_CONFIG/.claude.json"
+  cp -r "$HOME/.config/gh" "$CONTAINER_CONFIG/gh"
+  mkdir -p "$CONTAINER_CONFIG/ssh"
+fi
+
+ENTRYPOINT=()
+if [ "$1" = "--shell" ]; then
+  ENTRYPOINT=(--entrypoint bash)
+  shift
+fi
+
+docker run --rm -it \
+  "${ENTRYPOINT[@]}" \
+  -v ~/code:/code \
+  -v "$CONTAINER_CONFIG":/home/claude/.claude \
+  -v "$CONTAINER_CONFIG/.claude.json":/home/claude/.claude.json \
+  -v "$HOME/.claude/skills":/home/claude/.claude/skills \
+  -v "$HOME/.claude/agents":/home/claude/.claude/agents \
+  -v "$HOME/.claude/CLAUDE.md":/home/claude/.claude/CLAUDE.md \
+  -v "$CONTAINER_CONFIG/gh":/home/claude/.config/gh \
+  -v "$CONTAINER_CONFIG/ssh":/home/claude/.ssh \
+  -w /code \
+  "$IMAGE_NAME" "$@"
