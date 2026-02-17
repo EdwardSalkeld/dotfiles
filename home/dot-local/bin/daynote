@@ -1,7 +1,41 @@
 #!/bin/bash
 
-# get the date
-dt=$(date +"%Y%m%d")
+dry_run=false
+if [ "$1" = "--dry-run" ] || [ "$1" = "-n" ]; then
+  dry_run=true
+fi
 
-# grab args as one string
-nvim ~/personal/notes/daynotes/$dt.md
+NOTES_DIR=~/personal/notes/daynotes
+dt=$(date +"%Y%m%d")
+day=$(date +"%A")
+today="$NOTES_DIR/$dt.md"
+
+if [ -f "$today" ]; then
+  if $dry_run; then
+    echo "# $today already exists, would just open it"
+    exit 0
+  fi
+else
+  content="# $day"
+
+  prev=$(ls "$NOTES_DIR"/[0-9]*.md 2>/dev/null | sort -r | head -1)
+  if [ -n "$prev" ]; then
+    tasks=$(grep -E '^\s*- \[ \]' "$prev")
+    if [ -n "$tasks" ]; then
+      content=$(printf "# %s\n\n## Carried over\n\n%s\n\n## AM\n\n## PM" "$day" "$tasks")
+    fi
+  fi
+
+  if [ "$content" = "# $day" ]; then
+    content=$(printf "# %s\n\n## AM\n\n## PM" "$day")
+  fi
+
+  if $dry_run; then
+    echo "$content"
+    exit 0
+  fi
+
+  printf "%s\n" "$content" > "$today"
+fi
+
+nvim "$today"
