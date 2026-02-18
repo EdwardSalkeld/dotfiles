@@ -4,7 +4,35 @@ IMAGE_NAME="claude-code"
 DOCKERFILE_DIR="$HOME/.local/docker/claude-code"
 CONTAINER_CONFIG="$HOME/.local/claude-container"
 
-docker build -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
+BUILD_ARGS=()
+ENTRYPOINT=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --rebuild)
+      BUILD_ARGS=(--no-cache)
+      shift
+      ;;
+    --shell)
+      ENTRYPOINT=(--entrypoint bash)
+      shift
+      ;;
+    --help)
+      echo "Usage: claude-container [OPTIONS] [-- CLAUDE_ARGS...]"
+      echo ""
+      echo "Options:"
+      echo "  --rebuild  Force a full image rebuild (no cache)"
+      echo "  --shell    Drop into bash instead of claude"
+      echo "  --help     Show this help"
+      exit 0
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+docker build "${BUILD_ARGS[@]}" -t "$IMAGE_NAME" "$DOCKERFILE_DIR"
 
 # Seed container config from host settings on first run
 if [ ! -d "$CONTAINER_CONFIG" ]; then
@@ -15,15 +43,10 @@ if [ ! -d "$CONTAINER_CONFIG" ]; then
   mkdir -p "$CONTAINER_CONFIG/ssh"
 fi
 
-ENTRYPOINT=()
-if [ "$1" = "--shell" ]; then
-  ENTRYPOINT=(--entrypoint bash)
-  shift
-fi
-
 docker run --rm -it \
   "${ENTRYPOINT[@]}" \
   -v ~/code:/code \
+  -v ~/personal:/personal \
   -v "$CONTAINER_CONFIG":/home/claude/.claude \
   -v "$CONTAINER_CONFIG/.claude.json":/home/claude/.claude.json \
   -v "$HOME/.claude/skills":/home/claude/.claude/skills \
