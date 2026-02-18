@@ -7,6 +7,7 @@
 ## Running code
 
 - please use 'docker compose' instead of docker-compose
+- Worktrees are isolated environments for separate tasks. Never use resources (databases, containers, ports) from one worktree in another. Only use the DB/services running for the current checkout.
 
 ## Version control
 
