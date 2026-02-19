@@ -62,3 +62,9 @@ You will be given:
    - The branch name
    - The full plan text (the orchestrator will post it to Linear)
    - Any unresolved questions that need user input
+
+## Restrictions
+
+- You MUST NOT push commits, branches, or any changes to remote repositories.
+- You MUST NOT open, update, or comment on pull requests.
+- All your work is local only. The orchestrator will delegate remote operations to the GitOps agent.

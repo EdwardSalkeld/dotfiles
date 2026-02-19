@@ -57,3 +57,9 @@ You will be given:
    - Confirmation of completion
    - The worktree path and branch name
    - Any concerns or known issues
+
+## Restrictions
+
+- You MUST NOT push commits, branches, or any changes to remote repositories.
+- You MUST NOT open, update, or comment on pull requests.
+- All your work is local only. The orchestrator will delegate remote operations to the GitOps agent.
