@@ -79,7 +79,19 @@ collect_claude_panes() {
   local pane_list claude_panes="" seen=""
   pane_list=$(tmux list-panes -a -F '#{pane_pid}|#{session_name}:#{window_index}.#{pane_index}|#{pane_current_path}')
 
-  for claude_pid in $(pgrep -x claude 2>/dev/null); do
+  # Find candidate PIDs: native claude processes + docker containers running claude-code
+  local candidate_pids=""
+  candidate_pids=$(pgrep -x claude 2>/dev/null || true)
+
+  # Also find docker run processes for claude-code containers
+  local docker_pids
+  docker_pids=$(pgrep -f 'docker run.*claude-code' 2>/dev/null || true)
+  if [[ -n "$docker_pids" ]]; then
+    candidate_pids=$(printf '%s\n%s' "$candidate_pids" "$docker_pids")
+  fi
+
+  for claude_pid in $candidate_pids; do
+    [[ -z "$claude_pid" ]] && continue
     local ppid
     ppid=$(ps -p "$claude_pid" -o ppid= 2>/dev/null | tr -d ' ') || continue
 
