@@ -66,3 +66,4 @@ Report to the user:
 - Each subagent has its own context — pass all details explicitly as text.
 - If SSH to GitHub fails with `Permission denied (publickey)`, stop and ask the user to add the SSH key.
 - Use flat worktree directory names (dashes, no slashes).
+- **Worktrees apply to ALL repos involved in a change**, not just the primary repo. If a ticket spans multiple repos (e.g. application code + infrastructure), create a worktree in each. Never commit directly on a main checkout.
