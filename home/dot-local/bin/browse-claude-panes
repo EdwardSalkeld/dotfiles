@@ -182,6 +182,7 @@ selected=$(echo "$claude_panes" | fzf \
   --tmux 90%,80% \
   --ansi \
   --no-multi \
+  --cycle \
   --prompt="Claude > " \
   --header="$col_header" \
   --preview "$preview_cmd" \
