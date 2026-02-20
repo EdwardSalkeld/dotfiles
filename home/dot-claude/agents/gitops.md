@@ -33,9 +33,14 @@ You will be given:
    - Use the `pr` skill to create the PR
    - The PR must be a draft
 
-4. **Return** with:
+4. **Watch CI** (if requested):
+   - Run `gh pr checks <PR-number> --watch` to wait for CI completion
+   - Report the final status of each check (passed/failed)
+
+5. **Return** with:
    - What was done (pushed, PR opened, or rejected)
    - The PR URL (if a PR was opened)
+   - CI check results (if watched)
    - List of commit style issues (if rejected)
 
 ## Restrictions

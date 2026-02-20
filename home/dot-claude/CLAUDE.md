@@ -20,5 +20,6 @@
 
 - **Only the `gitops` agent is allowed to push to remote repositories or open pull requests.** No other agent (developer, qa, engineering-manager, or the orchestrator) may run `git push`, `gh pr create`, or any command that writes to a remote.
 - When you need to push a branch or open a PR, always delegate to the `gitops` agent. Pass it the worktree path, branch name, and desired action.
+- **You MUST NOT create a PR without using the `pr` skill.** Before delegating to the gitops agent, read the `pr` skill file at `/Users/edsalkeld/.claude/skills/pr/skill.md` and include its FULL TEXT verbatim in the gitops agent prompt. The gitops agent cannot read skill files itself — it relies entirely on what you pass it. Never invent your own PR title/body format.
 - The `gitops` agent will review commit quality before pushing and will reject branches with poor commit messages.
 
