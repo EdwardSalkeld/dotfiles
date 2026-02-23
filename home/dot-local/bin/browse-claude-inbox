@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# Browse the Claude inbox — event-driven alternative to browse-claude-panes.
+# Reads inbox files written by claude-inbox-hook.
+
+set -euo pipefail
+
+INBOX_DIR="$HOME/.local/state/claude-inbox"
+
+# Coloured status tag (fixed 14-char visible width for column alignment)
+status_tag() {
+  case "$1" in
+    permission) printf '\033[31m⏸ permission  \033[0m' ;;
+    question)   printf '\033[33m? question    \033[0m' ;;
+    idle)       printf '\033[32m● idle        \033[0m' ;;
+    *)          printf '%-14s' "$1" ;;
+  esac
+}
+
+# Convert ISO timestamp to relative age string.
+relative_age() {
+  local ts="$1"
+  local now ts_epoch diff
+
+  # macOS date -j for parsing, GNU date -d as fallback
+  if ts_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" "+%s" 2>/dev/null); then
+    now=$(date "+%s")
+  elif ts_epoch=$(date -d "$ts" "+%s" 2>/dev/null); then
+    now=$(date "+%s")
+  else
+    echo "???"
+    return
+  fi
+
+  diff=$(( now - ts_epoch ))
+  if   (( diff < 60 ));    then echo "${diff}s ago"
+  elif (( diff < 3600 ));  then echo "$(( diff / 60 ))m ago"
+  elif (( diff < 86400 )); then echo "$(( diff / 3600 ))h ago"
+  else                          echo "$(( diff / 86400 ))d ago"
+  fi
+}
+
+# Read all inbox entries, validate, format for display.
+collect_entries() {
+  [[ -d "$INBOX_DIR" ]] || return
+
+  local entries=""
+  for f in "$INBOX_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    # Skip hidden files (like .tasks/)
+    local base
+    base=$(basename "$f")
+    [[ "$base" == .* ]] && continue
+
+    local task pane status timestamp pid
+    { read -r task; read -r pane; read -r status; read -r timestamp; read -r pid; } < "$f" || continue
+
+    # Stale check: is the Claude process still alive?
+    if ! kill -0 "$pid" 2>/dev/null; then
+      rm -f "$f"
+      continue
+    fi
+
+    local tag age line
+    tag=$(status_tag "$status")
+    age=$(relative_age "$timestamp")
+
+    # Sort key: permission first (0), question second (1), idle last (2)
+    local sort_key
+    case "$status" in
+      permission) sort_key=0 ;;
+      question)   sort_key=1 ;;
+      *)          sort_key=2 ;;
+    esac
+
+    line=$(printf '%s\t%b  %-30s  %-12s  %s' "$sort_key" "$tag" "$task" "$pane" "$age")
+    if [[ -n "$entries" ]]; then
+      entries="${entries}"$'\n'"${line}"
+    else
+      entries="${line}"
+    fi
+  done
+
+  if [[ -n "$entries" ]]; then
+    echo "$entries" | sort -t$'\t' -k1,1 | cut -f2-
+  fi
+}
+
+# --list mode: output entries for fzf reload
+if [[ "${1:-}" == "--list" ]]; then
+  collect_entries
+  exit 0
+fi
+
+# --preview mode: capture tmux pane content
+if [[ "${1:-}" == "--preview" ]]; then
+  # Extract pane ref from the formatted line (second-to-last double-space field)
+  pane="$2"
+  tmux capture-pane -e -t "$pane" -p -S -500 2>/dev/null | awk '
+    {
+      lines[NR] = $0
+      clean = $0
+      gsub(/\033\[[0-9;]*[a-zA-Z]/, "", clean)
+      gsub(/[[:space:]]/, "", clean)
+      if (clean != "") last = NR
+    }
+    END { for (i = 1; i <= last; i++) print lines[i] }
+  '
+  exit 0
+fi
+
+entries=$(collect_entries)
+
+if [[ -z "$entries" ]]; then
+  tmux display-message "Inbox empty"
+  exit 0
+  exit 0
+fi
+
+self="${BASH_SOURCE[0]:-$0}"
+
+col_header=$(printf '  \033[2m%-16s%-32s%-14s%s\033[0m\n  \033[2mctrl-r: refresh · enter: switch to pane\033[0m' \
+  "STATUS" "TASK" "PANE" "AGE")
+
+# Preview: extract pane ref (field between last two double-space groups)
+preview_cmd="$self"' --preview "$(echo {} | sed '\''s/.*  \([^ ]*:[0-9]*\.[0-9]*\)  .*/\1/'\'')"'
+
+selected=$(echo "$entries" | fzf \
+  --tmux 90%,80% \
+  --ansi \
+  --no-multi \
+  --cycle \
+  --prompt="Inbox > " \
+  --header="$col_header" \
+  --preview "$preview_cmd" \
+  --preview-window="down:60%:wrap:follow:border-top" \
+  --border=rounded \
+  --border-label=" Claude Inbox " \
+  --border-label-pos=2 \
+  --padding=1,0 \
+  --pointer="▶" \
+  --color='border:#585858,label:bold:#e0af68,header:#565f89,prompt:#bb9af7,pointer:#f7768e,hl:#9ece6a,hl+:#9ece6a' \
+  --bind "ctrl-r:reload($self --list)" \
+) || exit 0
+
+# Extract pane ref: it's between the last two double-space-separated fields
+pane=$(echo "$selected" | sed 's/.*  \([^ ]*:[0-9]*\.[0-9]*\)  .*/\1/')
+
+if [[ -z "${TMUX:-}" ]]; then
+  tmux attach -t "$pane"
+else
+  tmux switch-client -t "$pane"
+fi

@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Hook handler for Claude Code → inbox integration.
+# Receives hook event JSON on stdin, manages inbox files on disk.
+# All events are fire-and-forget (async: true in settings.json).
+
+set -euo pipefail
+
+INBOX_DIR="$HOME/.local/state/claude-inbox"
+TASKS_DIR="$INBOX_DIR/.tasks"
+mkdir -p "$INBOX_DIR" "$TASKS_DIR"
+
+input=$(cat)
+
+hook_event=$(echo "$input" | jq -r '.hook_event_name')
+session_id=$(echo "$input" | jq -r '.session_id')
+cwd=$(echo "$input" | jq -r '.cwd')
+
+# Walk process tree from this hook's parent up to find the claude process.
+get_claude_pid() {
+  local pid="$PPID"
+  while [[ -n "$pid" && "$pid" != "1" ]]; do
+    local comm
+    comm=$(ps -p "$pid" -o comm= 2>/dev/null | tr -d ' ') || break
+    if [[ "$comm" == "claude" ]]; then
+      echo "$pid"
+      return
+    fi
+    pid=$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d ' ') || break
+  done
+}
+
+# Walk process tree up to find the tmux pane this session lives in.
+get_tmux_pane() {
+  local pane_list
+  pane_list=$(tmux list-panes -a -F '#{pane_pid}|#{session_name}:#{window_index}.#{pane_index}' 2>/dev/null) || return
+
+  local pid="$PPID"
+  while [[ -n "$pid" && "$pid" != "1" ]]; do
+    local match
+    match=$(echo "$pane_list" | while IFS='|' read -r pane_pid ident; do
+      if [[ "$pane_pid" == "$pid" ]]; then echo "$ident"; return; fi
+    done)
+    if [[ -n "$match" ]]; then
+      echo "$match"
+      return
+    fi
+    pid=$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d ' ') || break
+  done
+}
+
+# Get task description: stashed prompt first, fallback to basename of cwd.
+get_task_desc() {
+  if [[ -f "$TASKS_DIR/$session_id" ]]; then
+    head -1 "$TASKS_DIR/$session_id"
+  else
+    basename "$cwd"
+  fi
+}
+
+# Write a 5-line inbox entry file.
+write_inbox() {
+  local status="$1"
+  local task_desc pane claude_pid timestamp
+
+  task_desc=$(get_task_desc)
+  pane=$(get_tmux_pane) || pane="unknown"
+  claude_pid=$(get_claude_pid) || claude_pid="$$"
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  printf '%s\n%s\n%s\n%s\n%s\n' \
+    "$task_desc" "$pane" "$status" "$timestamp" "$claude_pid" \
+    > "$INBOX_DIR/$session_id"
+}
+
+case "$hook_event" in
+  UserPromptSubmit)
+    prompt=$(echo "$input" | jq -r '.prompt // empty')
+    if [[ -n "$prompt" ]]; then
+      # Stash first line of prompt as task description (truncated to 80 chars)
+      first_line=$(echo "$prompt" | head -1 | cut -c1-80)
+      echo "$first_line" > "$TASKS_DIR/$session_id"
+    fi
+    # User is actively working — remove from inbox
+    rm -f "$INBOX_DIR/$session_id"
+    ;;
+
+  Notification)
+    notification_type=$(echo "$input" | jq -r '.notification_type // empty')
+    case "$notification_type" in
+      permission_prompt)   write_inbox "permission" ;;
+      elicitation_dialog)  write_inbox "question" ;;
+      idle_prompt)         write_inbox "idle" ;;
+    esac
+    ;;
+
+  Stop)
+    stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active // false')
+    [[ "$stop_hook_active" == "true" ]] && exit 0
+    write_inbox "idle"
+    ;;
+
+  SessionEnd)
+    rm -f "$INBOX_DIR/$session_id" "$TASKS_DIR/$session_id"
+    ;;
+esac
