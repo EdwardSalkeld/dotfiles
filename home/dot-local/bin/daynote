@@ -1,41 +1,86 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
-dry_run=false
-if [ "$1" = "--dry-run" ] || [ "$1" = "-n" ]; then
-  dry_run=true
-fi
+import glob
+import os
+import re
+import subprocess
+import sys
+from datetime import date
+from pathlib import Path
 
-NOTES_DIR=~/personal/notes/daynotes
-dt=$(date +"%Y%m%d")
-day=$(date +"%A")
-today="$NOTES_DIR/$dt.md"
 
-if [ -f "$today" ]; then
-  if $dry_run; then
-    echo "# $today already exists, would just open it"
-    exit 0
-  fi
-else
-  content="# $day"
+def extract_carryover(content: str) -> list[tuple[str, list[str]]]:
+    """Parse a daynote and extract ## headings that have unfinished items.
 
-  prev=$(ls "$NOTES_DIR"/[0-9]*.md 2>/dev/null | sort -r | head -1)
-  if [ -n "$prev" ]; then
-    tasks=$(grep -E '^\s*- \[ \]' "$prev")
-    if [ -n "$tasks" ]; then
-      content=$(printf "# %s\n\n## Carried over\n\n%s\n\n## AM\n\n## PM" "$day" "$tasks")
-    fi
-  fi
+    Returns list of (heading, [items]) where each item is a '- [ ] ...' line.
+    Drops ### sub-headings, completed items, and sections with no unfinished items.
+    """
+    sections = []
+    current_heading = None
+    current_items = []
 
-  if [ "$content" = "# $day" ]; then
-    content=$(printf "# %s\n\n## AM\n\n## PM" "$day")
-  fi
+    for line in content.splitlines():
+        if line.startswith("## "):
+            if current_heading is not None and current_items:
+                sections.append((current_heading, current_items))
+            current_heading = line
+            current_items = []
+        elif re.match(r"^\s*- \[ \]", line):
+            current_items.append(line)
 
-  if $dry_run; then
-    echo "$content"
-    exit 0
-  fi
+    if current_heading is not None and current_items:
+        sections.append((current_heading, current_items))
 
-  printf "%s\n" "$content" > "$today"
-fi
+    return sections
 
-nvim "$today"
+
+def build_note(day_name: str, sections: list[tuple[str, list[str]]]) -> str:
+    """Build a new daynote from a day name and carryover sections."""
+    parts = [f"# {day_name}"]
+
+    for heading, items in sections:
+        parts.append("")
+        parts.append(heading)
+        parts.append("")
+        parts.extend(items)
+
+    return "\n".join(parts) + "\n"
+
+
+def find_previous_note(notes_dir: str) -> str | None:
+    """Find the most recent daynote file (by filename sort)."""
+    files = sorted(glob.glob(os.path.join(notes_dir, "[0-9]*.md")), reverse=True)
+    return files[0] if files else None
+
+
+def main():
+    dry_run = len(sys.argv) > 1 and sys.argv[1] in ("--dry-run", "-n")
+
+    notes_dir = Path.home() / "personal" / "notes" / "daynotes"
+    dt = date.today().strftime("%Y%m%d")
+    day_name = date.today().strftime("%A")
+    today_path = notes_dir / f"{dt}.md"
+
+    if today_path.exists():
+        if dry_run:
+            print(f"# {today_path} already exists, would just open it")
+            sys.exit(0)
+    else:
+        prev = find_previous_note(str(notes_dir))
+        sections = []
+        if prev:
+            sections = extract_carryover(Path(prev).read_text())
+
+        content = build_note(day_name, sections)
+
+        if dry_run:
+            print(content, end="")
+            sys.exit(0)
+
+        today_path.write_text(content)
+
+    subprocess.run(["nvim", str(today_path)])
+
+
+if __name__ == "__main__":
+    main()
