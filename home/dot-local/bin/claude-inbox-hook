@@ -84,6 +84,11 @@ case "$hook_event" in
     rm -f "$INBOX_DIR/$session_id"
     ;;
 
+  PreToolUse)
+    # Claude is working — clear any stale permission/question status
+    rm -f "$INBOX_DIR/$session_id"
+    ;;
+
   Notification)
     notification_type=$(echo "$input" | jq -r '.notification_type // empty')
     case "$notification_type" in
