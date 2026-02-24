@@ -12,6 +12,7 @@ status_tag() {
     permission) printf '\033[31m⏸ permission  \033[0m' ;;
     question)   printf '\033[33m? question    \033[0m' ;;
     idle)       printf '\033[32m● idle        \033[0m' ;;
+    busy)       printf '\033[2m⟳ busy        \033[0m' ;;
     *)          printf '%-14s' "$1" ;;
   esac
 }
@@ -64,12 +65,12 @@ collect_entries() {
     tag=$(status_tag "$status")
     age=$(relative_age "$timestamp")
 
-    # Sort key: permission first (0), question second (1), idle last (2)
     local sort_key
     case "$status" in
       permission) sort_key=0 ;;
       question)   sort_key=1 ;;
-      *)          sort_key=2 ;;
+      idle)       sort_key=2 ;;
+      *)          sort_key=3 ;;
     esac
 
     line=$(printf '%s\t%b  %-30s  %-12s  %s' "$sort_key" "$tag" "$task" "$pane" "$age")
@@ -112,7 +113,6 @@ entries=$(collect_entries)
 
 if [[ -z "$entries" ]]; then
   tmux display-message "Inbox empty"
-  exit 0
   exit 0
 fi
 

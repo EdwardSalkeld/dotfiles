@@ -80,13 +80,11 @@ case "$hook_event" in
       first_line=$(echo "$prompt" | head -1 | cut -c1-80)
       echo "$first_line" > "$TASKS_DIR/$session_id"
     fi
-    # User is actively working — remove from inbox
-    rm -f "$INBOX_DIR/$session_id"
+    write_inbox "busy"
     ;;
 
   PreToolUse)
-    # Claude is working — clear any stale permission/question status
-    rm -f "$INBOX_DIR/$session_id"
+    write_inbox "busy"
     ;;
 
   Notification)
