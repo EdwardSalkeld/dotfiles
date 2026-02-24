@@ -78,9 +78,9 @@ When a PR is one step in a sequence, be explicit about scope.
 
 ### Reference related PRs
 
-Use `#N` or `repo#N` shorthand for dependencies and sequences.
+Use `#N` for PRs in the same repo. For cross-repo references, use full GitHub URLs (e.g. `https://github.com/org/repo/pull/N`) since `repo#N` shorthand doesn't render as a link on GitHub.
 
-> `Depends on terraform-modules#80.`
+> `Depends on https://github.com/brightnetwork/terraform-modules/pull/80.`
 
 > `Builds on #16332.`
 
@@ -99,6 +99,8 @@ Uncertainty, frustration, hackiness — say so. Credit AI tools when relevant.
 - No co-authored-by lines
 - No emoji
 - No "Generated with" footers
+- No em dashes. Use regular dashes or rewrite the sentence.
+- No "Companion to" or similar filler phrases when referencing other PRs. Just state the relationship directly.
 - Empty body is fine when the title says everything
 
 ### Voice
