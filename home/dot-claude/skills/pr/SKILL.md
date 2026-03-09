@@ -100,7 +100,7 @@ Uncertainty, frustration, hackiness — say so. Credit AI tools when relevant.
 - No emoji
 - No "Generated with" footers
 - No em dashes. Use regular dashes or rewrite the sentence.
-- No "Companion to" or similar filler phrases when referencing other PRs. Just state the relationship directly.
+- No "Companion to", "Builds on", or similar filler when the PR is already referenced in the body. Don't repeat information - if a PR is mentioned in context, don't add a separate line restating the relationship.
 - Empty body is fine when the title says everything
 
 ### Voice

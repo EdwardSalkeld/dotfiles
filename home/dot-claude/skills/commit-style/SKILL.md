@@ -18,6 +18,28 @@ description: Commit message style preferences. Applied automatically when creati
 - Large commits can have a longer message but focus on the **why** — context you wouldn't get from reading the diff
 - Do not list what changed; the diff already shows that
 
+## Command format
+
+Use `git commit -F -` with a heredoc to avoid `$()` substitution (which triggers permission prompts):
+
+```bash
+git commit -F - <<'EOF'
+Your commit message here
+EOF
+```
+
+For multi-line messages:
+
+```bash
+git commit -F - <<'EOF'
+Short summary line
+
+Longer explanation of why, if needed.
+EOF
+```
+
+Do NOT use `git commit -m "$(cat <<'EOF' ... EOF)"` — the `$()` subshell requires extra permission approval.
+
 ## Examples
 
 Good:
