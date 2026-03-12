@@ -8,6 +8,7 @@
 
 - please use 'docker compose' instead of docker-compose
 - Worktrees are isolated environments for separate tasks. Never use resources (databases, containers, ports) from one worktree in another. Only use the DB/services running for the current checkout.
+- When agents need to run git commands in a directory that is NOT their current working directory, use `git -C /path` instead of `cd /path && git`. This avoids requiring user approval for every `cd` command. If the repo is already the working directory, just run `git` directly.
 
 ## Version control
 
@@ -17,6 +18,17 @@
 - **Never amend commits.** Always add new commits. Preserving individual commit history is preferred over a clean single commit. Force push should only be used for rebasing.
 - If you encounter SSH permission errors when accessing GitHub (e.g. `git@github.com: Permission denied (publickey)`), stop immediately and ask the user to add the SSH key. You cannot do this yourself — it requires a password you don't have access to.
 - When creating git worktrees, always use flat directory names — no slashes. Flatten branch names with dashes, e.g. `../repo_worktree_feature_branch-name` not `../repo_worktree_feature/branch-name`.
+
+## Work Brain — knowledge capture
+
+- A zettelkasten-style knowledge base lives at `/Users/edsalkeld/personal/work-brain/`.
+- **Whenever you encounter something worth remembering** — a non-obvious gotcha, an interesting debugging session, an architectural decision, a useful tool pattern — capture it as a journal note.
+  - Working on a Linear ticket? → `journal/tasks/<ticket-id>.md`
+  - No ticket? → `journal/adhoc/<YYYY-MM-DD-descriptive_name>.md`
+- Read the `CLAUDE.md` in that repo for frontmatter format and guidelines.
+- You can write to work-brain from any project — use `git -C /Users/edsalkeld/personal/work-brain` for git operations and absolute paths for file writes.
+- Commit and push notes as you go. Use the commit-style skill. These are low-stakes commits — don't overthink them.
+- The `learning/` directory contains distilled notes; don't write there directly during normal work — a periodic skill handles that.
 
 ## Remote operations
 
