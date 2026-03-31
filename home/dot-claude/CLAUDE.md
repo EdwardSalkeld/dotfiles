@@ -4,6 +4,10 @@
 - Comments added should explain reasons that would not be obvious from reading the code
 - Respect existing comments - only remove them if your change means they're no longer true or relevant
 
+## Screenshots
+
+- Save screenshots to `~/screenshots/`, not to project directories or /tmp.
+
 ## Running code
 
 - please use 'docker compose' instead of docker-compose
@@ -22,9 +26,9 @@
 ## Work Brain — knowledge capture
 
 - A zettelkasten-style knowledge base lives at `/Users/edsalkeld/personal/work-brain/`.
-- **Whenever you encounter something worth remembering** — a non-obvious gotcha, an interesting debugging session, an architectural decision, a useful tool pattern — capture it as a journal note.
-  - Working on a Linear ticket? → `journal/tasks/<ticket-id>.md`
-  - No ticket? → `journal/adhoc/<YYYY-MM-DD-descriptive_name>.md`
+- **You MUST proactively write work-brain notes. Do not wait to be asked.** This is as important as committing code.
+- **When working on a Linear ticket**: create or update `journal/tasks/<ticket-id>.md` at the start of the task. Record decisions, PR numbers, gotchas, and anything someone picking this up later would need. Update it as you go.
+- **When working without a ticket**: create `journal/adhoc/<YYYY-MM-DD-descriptive_name>.md` for anything worth remembering — debugging sessions, architectural decisions, tool patterns, non-obvious gotchas.
 - Read the `CLAUDE.md` in that repo for frontmatter format and guidelines.
 - You can write to work-brain from any project — use `git -C /Users/edsalkeld/personal/work-brain` for git operations and absolute paths for file writes.
 - Commit and push notes as you go. Use the commit-style skill. These are low-stakes commits — don't overthink them.
