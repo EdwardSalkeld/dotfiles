@@ -46,7 +46,8 @@
 #theme = Monokai Pro Light Sun
 #theme = catppuccin-latte
 theme = light:Catppuccin Latte,dark:Catppuccin Frappe
-font-family = Ubuntu Mono
+#font-family = Ubuntu Mono
+font-family = Monaspace Argon Regular
 font-size = 20
 # macos-option-as-alt = left
 
