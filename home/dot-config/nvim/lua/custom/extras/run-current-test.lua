@@ -105,7 +105,8 @@ local function run_current_test()
   vim.api.nvim_buf_set_keymap(buf, 'n', '<Esc>', '<cmd>close<cr>', { noremap = true, silent = true })
 
   -- Start terminal in the floating window
-  vim.fn.termopen("echo 'Running: " .. django_command .. "' && " .. django_command, {
+  vim.fn.jobstart("echo 'Running: " .. django_command .. "' && " .. django_command, {
+    term = true,
     on_exit = function(_, exit_code)
       -- Add exit status to buffer
       vim.schedule(function()
