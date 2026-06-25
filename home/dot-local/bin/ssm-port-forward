@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Forward a port from an EC2 instance to the same port locally over SSM.
+# Handy for OAuth callbacks (e.g. `codex mcp login`) where a CLI on a remote
+# box listens on localhost:<port> but you approve in a browser on this machine.
+# Usage: ssm-port-forward <target> <port> [local-port]
+
+set -e
+
+if [ $# -lt 2 ]; then
+    echo "Usage: ssm-port-forward <target> <port> [local-port]"
+    echo "Example: ssm-port-forward \$GASTON_EC2 39379"
+    echo "Example: ssm-port-forward i-0123456789abcdef0 39379 40000"
+    exit 1
+fi
+
+TARGET="$1"
+REMOTE_PORT="$2"
+LOCAL_PORT="${3:-$2}"
+
+echo "Forwarding localhost:${LOCAL_PORT} -> ${TARGET}:${REMOTE_PORT} (Ctrl-C to stop)"
+
+aws ssm start-session \
+    --target "$TARGET" \
+    --document-name AWS-StartPortForwardingSession \
+    --parameters "{\"portNumber\":[\"${REMOTE_PORT}\"],\"localPortNumber\":[\"${LOCAL_PORT}\"]}"
