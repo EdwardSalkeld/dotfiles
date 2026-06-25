@@ -10,7 +10,9 @@
       "Edit(~/personal/work-brain/**)",
       "Bash(git -C /Users/edsalkeld/personal/work-brain *)",
       "Bash(gh api *)",
-      "Bash(gh repo view *)"
+      "Bash(gh repo view *)",
+      "Bash(curl *)",
+      "Bash(python3 *)"
     ]
   },
   "hooks": {
@@ -55,6 +57,15 @@
             "command": "jq -r '.tool_input.command' | grep -qE -- '--force\\b|--force-with-lease' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Force push detected. Approve manually if this is intentional (e.g. after a rebase).\"}}' || true"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -qE -- '(^|[;&|])[[:space:]]*cd[[:space:]].*[;&][[:space:]]*git([[:space:]]|$)' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked: cd combined with git in one command. Use the git -C <path> <subcommand> form instead — it is already allowlisted and runs without a prompt. Re-issue the command with git -C.\"}}' || true"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -80,6 +91,11 @@
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
   "alwaysThinkingEnabled": true,
-  "theme": "auto"
+  "theme": "auto",
+  "tui": "fullscreen"
 }
