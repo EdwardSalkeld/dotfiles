@@ -143,11 +143,19 @@ ctrl-alt-space = 'layout floating tiling'
 # Toggle tiles/accordion layout
 ctrl-alt-slash = 'layout tiles accordion'
 
-# Enter service mode for reload/reset (then r = reset tree, esc = reload+back)
+# Toggle split orientation (side-by-side <-> stacked)
+ctrl-alt-comma = 'layout horizontal vertical'
+
+# Resize the focused tile
+ctrl-alt-minus = 'resize smart -50'
+ctrl-alt-equal = 'resize smart +50'
+
+# Enter service mode for reload/reset (then r = reset tree, b = balance, esc = reload+back)
 ctrl-alt-semicolon = 'mode service'
 
 [mode.service.binding]
 esc = ['reload-config', 'mode main']
 r = ['flatten-workspace-tree', 'mode main']   # reset window tree
+b = ['balance-sizes', 'mode main']            # equalise all tiles
 f = ['layout floating tiling', 'mode main']
 backspace = ['close-all-windows-but-current', 'mode main']
