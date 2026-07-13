@@ -15,7 +15,7 @@ dotfiles/
     ├── dot-config/
     │   ├── nvim/             # Neovim configuration
     │   ├── ghostty/          # Terminal emulator
-    │   ├── skhd/             # macOS hotkey daemon
+    │   ├── aerospace/        # tiling window manager
     │   └── ncmpcpp/          # Music player config
     └── dot-local/
         ├── bin/              # Custom shell scripts
@@ -146,17 +146,16 @@ Custom function to run Django tests from within Neovim:
 
 **Ghostty** - Modern terminal with Catppuccin theme, Ubuntu Mono font
 
-**Skhd** - Global hotkeys:
-- `Cmd+Fn+F1` Ghostty
-- `Cmd+Fn+F2` Firefox
-- `Cmd+Fn+F3` Outlook
-- `Cmd+Fn+F4` Slack
-- `Cmd+Fn+F5` Linear
+**AeroSpace** - Tiling window manager (config in `home/dot-config/aerospace/aerospace.toml`):
+- `Ctrl+Alt+1..8` focus workspace N and launch/focus its app (Ghostty, Firefox, Outlook, Slack, Linear, Claude, NetNewsWire, Zen)
+- `Ctrl+Alt+Shift+1..8` move the focused window to workspace N; `Ctrl+Alt+0` scratch workspace
+- `Ctrl+Alt+H/J/K/L` or arrows to move focus; add `Shift` to move the window
 
 ## Homebrew Packages
 
 Key packages from `Brewfile`:
 - **Dev**: neovim, go, node, nvm, tfenv, luarocks
 - **CLI**: fd, fzf, ripgrep, lazygit, gh, tig
-- **System**: htop, stow, skhd
+- **System**: htop, stow
+- **Window mgmt**: aerospace
 - **Cloud**: awscli, doctl, gcloud-cli
