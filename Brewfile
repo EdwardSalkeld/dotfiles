@@ -2,6 +2,7 @@ tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git"
 tap "cloudflare/cloudflare"
 tap "hashicorp/tap"
 tap "jackielii/tap"
+tap "nikitabobko/tap"
 tap "pulumi/tap"
 # Official Amazon AWS command-line interface
 brew "awscli"
@@ -93,6 +94,8 @@ brew "wakeonlan"
 brew "watch"
 # Command-line interface for 1Password
 cask "1password-cli"
+# i3-like tiling window manager for macOS
+cask "aerospace"
 cask "font-monaspace"
 cask "font-ubuntu-mono"
 # Set of tools to manage resources and applications hosted on Google Cloud

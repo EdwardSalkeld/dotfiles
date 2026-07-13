@@ -1,0 +1,153 @@
+# AeroSpace config — https://nikitabobko.github.io/AeroSpace/guide
+#
+# Keybindings use a directly-pressed ctrl-alt chord (same physical position on
+# both the MacBook and external keyboards). Shift is the sub-modifier:
+#   Ctrl+Alt + N        -> focus workspace N
+#   Ctrl+Alt + Shift+N  -> move focused window to workspace N
+#
+# (CapsLock->Hyper was the original plan but Karabiner needs a system extension
+# that this machine's managed profile blocks.)
+
+config-version = 2
+
+start-at-login = true
+
+# In config-version 2 this is no longer inferred from bindings, so declare the
+# workspaces that should stay alive when empty (keeps monitor assignments stable)
+persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', 'M']
+
+# Normalize the tree so closing/opening windows doesn't leave odd nesting
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+
+# Keep the mouse where the action is when focus jumps between monitors
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+[gaps]
+inner.horizontal = 8
+inner.vertical = 8
+outer.left = 8
+outer.bottom = 8
+outer.top = 8
+outer.right = 8
+
+# --- Pin the regular apps to fixed workspaces (mirrors the old skhd f1-f6) ---
+# Ad hoc apps (Calendar, Notes, RSS, etc.) have no rule and simply open in the
+# currently focused workspace — move them with Ctrl+Alt+Shift+N if you want.
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'org.mozilla.firefox'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.microsoft.Outlook'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'com.linear'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.anthropic.claudefordesktop'
+run = 'move-node-to-workspace 6'
+
+[[on-window-detected]]
+if.app-id = 'com.ranchero.NetNewsWire-Evergreen'
+run = 'move-node-to-workspace 7'
+
+[[on-window-detected]]
+if.app-id = 'app.zen-browser.zen'
+run = 'move-node-to-workspace 8'
+
+# --- Two-monitor layout. Assignments to a disconnected monitor are ignored, so
+# --- mac-only and external-only setups just consolidate onto whichever screen
+# --- is present. (If you dock to a different external, add its name here.)
+[workspace-to-monitor-force-assignment]
+# Laptop (built-in) screen: comms + Linear
+3 = 'built-in'       # Outlook
+4 = 'built-in'       # Slack
+5 = 'built-in'       # Linear
+# Big external screen: terminal, browser, Claude
+1 = 'Acer R270U'     # Ghostty
+2 = 'Acer R270U'     # Firefox
+6 = 'Acer R270U'     # Claude
+7 = 'Acer R270U'     # NetNewsWire
+8 = 'Acer R270U'     # Zen
+
+[mode.main.binding]
+
+# Focus workspace + launch-or-focus its app (preserves old skhd behaviour)
+ctrl-alt-1 = ['workspace 1', 'exec-and-forget open -a "Ghostty"']
+ctrl-alt-2 = ['workspace 2', 'exec-and-forget open -a "Firefox"']
+ctrl-alt-3 = ['workspace 3', 'exec-and-forget open -a "Microsoft Outlook"']
+ctrl-alt-4 = ['workspace 4', 'exec-and-forget open -a "Slack"']
+ctrl-alt-5 = ['workspace 5', 'exec-and-forget open -a "Linear"']
+ctrl-alt-6 = ['workspace 6', 'exec-and-forget open -a "Claude"']
+ctrl-alt-7 = ['workspace 7', 'exec-and-forget open -a "NetNewsWire"']
+ctrl-alt-8 = ['workspace 8', 'exec-and-forget open -a "Zen"']
+
+# Scratch / misc workspace for ad hoc apps
+ctrl-alt-0 = 'workspace M'
+
+# Move focused window to workspace (Shift sub-modifier)
+ctrl-alt-shift-1 = ['move-node-to-workspace 1', 'workspace 1']
+ctrl-alt-shift-2 = ['move-node-to-workspace 2', 'workspace 2']
+ctrl-alt-shift-3 = ['move-node-to-workspace 3', 'workspace 3']
+ctrl-alt-shift-4 = ['move-node-to-workspace 4', 'workspace 4']
+ctrl-alt-shift-5 = ['move-node-to-workspace 5', 'workspace 5']
+ctrl-alt-shift-6 = ['move-node-to-workspace 6', 'workspace 6']
+ctrl-alt-shift-7 = ['move-node-to-workspace 7', 'workspace 7']
+ctrl-alt-shift-8 = ['move-node-to-workspace 8', 'workspace 8']
+ctrl-alt-shift-0 = ['move-node-to-workspace M', 'workspace M']
+
+# Cycle to previously focused workspace
+ctrl-alt-tab = 'workspace-back-and-forth'
+
+# Directional focus (vim keys + arrows)
+ctrl-alt-h = 'focus left'
+ctrl-alt-j = 'focus down'
+ctrl-alt-k = 'focus up'
+ctrl-alt-l = 'focus right'
+ctrl-alt-left = 'focus left'
+ctrl-alt-down = 'focus down'
+ctrl-alt-up = 'focus up'
+ctrl-alt-right = 'focus right'
+
+# Directional move within a workspace (vim keys + arrows)
+ctrl-alt-shift-h = 'move left'
+ctrl-alt-shift-j = 'move down'
+ctrl-alt-shift-k = 'move up'
+ctrl-alt-shift-l = 'move right'
+ctrl-alt-shift-left = 'move left'
+ctrl-alt-shift-down = 'move down'
+ctrl-alt-shift-up = 'move up'
+ctrl-alt-shift-right = 'move right'
+
+# Fill the workspace with the focused window (fullscreen-ish)
+ctrl-alt-f = 'fullscreen'
+
+# Toggle floating vs tiling for the focused window
+ctrl-alt-space = 'layout floating tiling'
+
+# Toggle tiles/accordion layout
+ctrl-alt-slash = 'layout tiles accordion'
+
+# Enter service mode for reload/reset (then r = reset tree, esc = reload+back)
+ctrl-alt-semicolon = 'mode service'
+
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main']   # reset window tree
+f = ['layout floating tiling', 'mode main']
+backspace = ['close-all-windows-but-current', 'mode main']
