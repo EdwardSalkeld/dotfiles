@@ -8,7 +8,7 @@ A personal dotfiles repository for macOS, managed with GNU Stow. Contains shell 
 dotfiles/
 ├── up.sh / down.sh          # Stow management scripts
 ├── setup-debian.sh          # Debian/Ubuntu setup script
-├── brew.list                 # Homebrew packages
+├── Brewfile                  # Homebrew packages (formulae, casks, taps)
 ├── code-samples/             # Syntax highlighting test files
 └── home/                     # Symlinked to ~ via stow
     ├── dot-zshrc             # Zsh configuration
@@ -27,7 +27,7 @@ dotfiles/
 ### macOS (Homebrew)
 
 ```bash
-brew bundle --file=brew.list  # Install packages
+brew bundle install --file=Brewfile  # Install packages
 ./up.sh                       # Symlink dotfiles
 ```
 
@@ -155,8 +155,8 @@ Custom function to run Django tests from within Neovim:
 
 ## Homebrew Packages
 
-Key packages from `brew.list`:
-- **Dev**: neovim, go, node, nvm, bun, terraform, pulumi
+Key packages from `Brewfile`:
+- **Dev**: neovim, go, node, nvm, tfenv, luarocks
 - **CLI**: fd, fzf, ripgrep, lazygit, gh, tig
 - **System**: htop, stow, skhd
-- **Cloud**: awscli, doctl, cloudflare
+- **Cloud**: awscli, doctl, gcloud-cli

@@ -1,3 +1,4 @@
 #!/bin/bash
 
-xargs brew install <  $HOME/personal/dotfiles/brew.list
+# Install everything in the Brewfile
+brew bundle install --file="$HOME/personal/dotfiles/Brewfile"

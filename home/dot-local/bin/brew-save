@@ -1,3 +1,4 @@
 #!/bin/bash
 
-brew leaves > $HOME/personal/dotfiles/brew.list
+# Dump formulae, casks and taps to the Brewfile (excludes go/npm/uv/vscode/mas globals)
+brew bundle dump --file="$HOME/personal/dotfiles/Brewfile" --force --formula --cask --tap
