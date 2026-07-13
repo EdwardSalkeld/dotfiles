@@ -220,7 +220,6 @@ Generated from dotfiles config. Leader key is `<Space>`.
 | Command          | Action                              | Source             |
 | ---------------- | ----------------------------------- | ------------------ |
 | `:Cppath`        | Copy current file path to clipboard | init.lua           |
-| `:CopilotEnable` | Enable Copilot (lazy loaded)        | copilot.lua        |
 | `:Neotree`       | Open file tree                      | neo-tree.nvim      |
 | `:Neogit`        | Open Neogit                         | neogit             |
 | `:Trouble`       | Open Trouble                        | trouble.nvim       |
