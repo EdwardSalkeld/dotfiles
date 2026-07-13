@@ -1,5 +1,6 @@
 tap "asmvik/formulae", "https://github.com/asmvik/homebrew-formulae.git"
 tap "cloudflare/cloudflare"
+tap "felixkratz/formulae"
 tap "hashicorp/tap"
 tap "jackielii/tap"
 tap "nikitabobko/tap"
@@ -10,6 +11,8 @@ brew "awscli"
 brew "awslogs"
 # Microsoft Azure CLI 2.0
 brew "azure-cli"
+# Draws borders around the focused window (pairs with AeroSpace)
+brew "borders"
 # Cross-platform make
 brew "cmake"
 # Linux virtual machines

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# JankyBorders config — executed by `borders` when no instance is running.
+# Colours are Catppuccin Mocha (mauve active, dim surface inactive) to match
+# the nvim/ghostty theme. Format is 0xAARRGGBB.
+borders \
+  style=round \
+  width=5.0 \
+  hidpi=on \
+  active_color=0xffcba6f7 \
+  inactive_color=0xff585b70

@@ -12,6 +12,9 @@ config-version = 2
 
 start-at-login = true
 
+# Start JankyBorders (focused-window highlight) with AeroSpace
+after-startup-command = ['exec-and-forget borders']
+
 # In config-version 2 this is no longer inferred from bindings, so declare the
 # workspaces that should stay alive when empty (keeps monitor assignments stable)
 persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', 'M']
