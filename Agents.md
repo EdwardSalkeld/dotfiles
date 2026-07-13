@@ -151,6 +151,7 @@ Custom function to run Django tests from within Neovim:
 - `Ctrl+Alt+Shift+1..8` move the focused window to workspace N; `Ctrl+Alt+0` scratch workspace
 - `Ctrl+Alt+H/J/K/L` or arrows to move focus; add `Shift` to move the window
 - `Ctrl+Alt+-`/`=` resize the focused tile; `Ctrl+Alt+,` toggle split orientation; `Ctrl+Alt+/` tiles↔accordion
+- `Ctrl+Alt+Cmd+H/J/K/L` join the focused window into its neighbour (nested layouts)
 
 ## Homebrew Packages
 

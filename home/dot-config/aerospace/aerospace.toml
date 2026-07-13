@@ -134,6 +134,12 @@ ctrl-alt-shift-down = 'move down'
 ctrl-alt-shift-up = 'move up'
 ctrl-alt-shift-right = 'move right'
 
+# Join the focused window into its neighbour's container (build nested layouts)
+ctrl-alt-cmd-h = 'join-with left'
+ctrl-alt-cmd-j = 'join-with down'
+ctrl-alt-cmd-k = 'join-with up'
+ctrl-alt-cmd-l = 'join-with right'
+
 # Fill the workspace with the focused window (fullscreen-ish)
 ctrl-alt-f = 'fullscreen'
 
