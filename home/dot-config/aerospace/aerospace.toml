@@ -30,12 +30,12 @@ default-root-container-orientation = 'auto'
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 [gaps]
-inner.horizontal = 8
-inner.vertical = 8
-outer.left = 8
-outer.bottom = 8
-outer.top = 8
-outer.right = 8
+inner.horizontal = 12
+inner.vertical = 12
+outer.left = 10
+outer.bottom = 10
+outer.top = 10
+outer.right = 10
 
 # --- Pin the regular apps to fixed workspaces (mirrors the old skhd f1-f6) ---
 # Ad hoc apps (Calendar, Notes, RSS, etc.) have no rule and simply open in the
