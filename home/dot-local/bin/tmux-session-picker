@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Floating tmux session picker, launched by the AeroSpace Ctrl+Opt+' binding
+# (see aerospace.toml) in a separate floating Ghostty window. Does two hops at
+# once: switches the main tmux client to the chosen session AND jumps to the
+# Ghostty window on workspace 1. (tmux's own prefix-' in-pane switcher is
+# unchanged.)
+
+# GUI-launched terminals may not inherit Homebrew's PATH
+export PATH="/opt/homebrew/bin:$PATH"
+
+selected=$(tmux list-sessions -F '#{session_name}' 2>/dev/null \
+  | fzf --reverse --cycle --prompt='session ❯ ' --header='switch tmux session') || exit 0
+[ -n "$selected" ] || exit 0
+
+# Switch the attached client to the chosen session. This picker runs the script
+# directly (not tmux), so it isn't itself a client — the one client is the main
+# Ghostty we want to retarget.
+client=$(tmux list-clients -F '#{client_name}' 2>/dev/null | head -1)
+[ -n "$client" ] && tmux switch-client -c "$client" -t "$selected"
+
+# Return focus to the Ghostty window on workspace 1; move+follow so the picker's
+# closure doesn't bounce focus away from it.
+aerospace move-node-to-workspace 1 --focus-follows-window

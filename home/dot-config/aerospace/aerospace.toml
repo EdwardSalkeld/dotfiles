@@ -118,6 +118,9 @@ ctrl-alt-w = 'exec-and-forget open -na Ghostty.app --args --title=aerospace-pick
 # Program/window picker (cmd-tab style: jump to a specific window)
 ctrl-alt-p = 'exec-and-forget open -na Ghostty.app --args --title=aerospace-picker --quit-after-last-window-closed=true --window-width=90 --window-height=22 --window-position-x=100 --window-position-y=100 --command=/Users/edsalkeld/.local/bin/aerospace-window'
 
+# tmux session picker (two hops: jump to the terminal on ws 1 AND switch session)
+ctrl-alt-quote = 'exec-and-forget open -na Ghostty.app --args --title=aerospace-picker --quit-after-last-window-closed=true --window-width=90 --window-height=22 --window-position-x=100 --window-position-y=100 --command=/Users/edsalkeld/.local/bin/tmux-session-picker'
+
 # Move focused window to workspace (Shift sub-modifier)
 ctrl-alt-shift-1 = ['move-node-to-workspace 1', 'workspace 1']
 ctrl-alt-shift-2 = ['move-node-to-workspace 2', 'workspace 2']

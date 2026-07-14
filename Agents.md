@@ -69,6 +69,7 @@ Located in `home/dot-local/bin/`:
 | `brew-install/save` | Homebrew management helpers |
 | `aerospace-switch` | fzf workspace picker for AeroSpace (`Ctrl+Alt+W`, floats over any app) |
 | `aerospace-window` | fzf window/program picker for AeroSpace (`Ctrl+Alt+P`, cmd-tab style) |
+| `tmux-session-picker` | floating tmux session picker (`Ctrl+Opt+'`): jump to terminal + switch session |
 
 ## Shell Configuration
 
