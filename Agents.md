@@ -68,6 +68,7 @@ Located in `home/dot-local/bin/`:
 | `daynote` | Daily note-taking utility |
 | `brew-install/save` | Homebrew management helpers |
 | `aerospace-switch` | fzf workspace picker for AeroSpace (`Ctrl+Alt+W`, floats over any app) |
+| `aerospace-window` | fzf window/program picker for AeroSpace (`Ctrl+Alt+P`, cmd-tab style) |
 
 ## Shell Configuration
 

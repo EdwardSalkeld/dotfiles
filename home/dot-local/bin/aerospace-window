@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Global window/program picker for AeroSpace ("cmd-tab" style), launched in a
+# floating Ghostty window by the Ctrl+Alt+P binding (see aerospace.toml). Lists
+# every window (workspace, app, title) and jumps to the exact one, switching
+# workspace as needed. Empty workspaces aren't listed — reach those with
+# Ctrl+Alt+<n> or the workspace picker (Ctrl+Alt+W).
+
+# GUI-launched terminals may not inherit Homebrew's PATH
+export PATH="/opt/homebrew/bin:$PATH"
+
+# Fields: workspace, app, title, id (tab-separated). Drop our own picker window.
+# awk builds a padded display column, then stashes id and workspace after tabs.
+choice=$(aerospace list-windows --all \
+    --format '%{workspace}%{tab}%{app-name}%{tab}%{window-title}%{tab}%{window-id}' \
+  | grep -v -F 'aerospace-picker' \
+  | awk -F '\t' '{ printf "%s  %-16s %s\t%s\t%s\n", $1, $2, $3, $4, $1 }' \
+  | fzf --delimiter='\t' --with-nth=1 --prompt='window ❯ ' \
+        --layout=reverse --height=100% --header='jump to window') || exit 0
+
+id=$(awk -F '\t' '{print $2}' <<<"$choice")
+ws=$(awk -F '\t' '{print $3}' <<<"$choice")
+[ -n "$id" ] || exit 0
+
+# Move the picker to the target workspace and follow it there so its closure
+# doesn't bounce focus back to the origin, then focus the exact window.
+aerospace move-node-to-workspace "$ws" --focus-follows-window
+aerospace focus --window-id "$id"

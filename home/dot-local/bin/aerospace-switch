@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Global fzf workspace picker for AeroSpace. Launched in a floating Ghostty
-# window by the Ctrl+Alt+W binding (see aerospace.toml). Shows each workspace
-# with the apps on it and switches to the chosen one.
+# Global workspace picker for AeroSpace, launched in a floating Ghostty window by
+# the Ctrl+Alt+W binding (see aerospace.toml). Lists every workspace with the
+# apps on it and switches to the chosen one. For jumping to a specific window/app
+# use the program picker (Ctrl+Alt+P, aerospace-window).
 
 # GUI-launched terminals may not inherit Homebrew's PATH
 export PATH="/opt/homebrew/bin:$PATH"
