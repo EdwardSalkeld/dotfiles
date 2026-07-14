@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Global fzf workspace picker for AeroSpace. Launched in a floating Ghostty
+# window by the Ctrl+Alt+W binding (see aerospace.toml). Shows each workspace
+# with the apps on it and switches to the chosen one.
+
+# GUI-launched terminals may not inherit Homebrew's PATH
+export PATH="/opt/homebrew/bin:$PATH"
+
+list() {
+  aerospace list-workspaces --all --format '%{workspace}' | while read -r w; do
+    apps=$(aerospace list-windows --workspace "$w" --format '%{app-name}' 2>/dev/null \
+      | sort -u | paste -sd ', ' -)
+    printf '%s  %s\n' "$w" "${apps:-—}"
+  done
+}
+
+choice=$(list | fzf --prompt='workspace ❯ ' --layout=reverse --height=100% \
+  --header='switch workspace') || exit 0
+
+ws=$(awk '{print $1}' <<<"$choice")
+[ -n "$ws" ] || exit 0
+
+# Switching then letting this window close bounces focus back to the origin
+# workspace. Instead, drag the picker window itself to the chosen workspace and
+# follow it there — when it closes, focus is already on the target and stays.
+aerospace move-node-to-workspace "$ws" --focus-follows-window

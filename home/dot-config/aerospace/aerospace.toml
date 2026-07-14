@@ -41,6 +41,13 @@ outer.right = 10
 # Ad hoc apps (Calendar, Notes, RSS, etc.) have no rule and simply open in the
 # currently focused workspace — move them with Ctrl+Alt+Shift+N if you want.
 
+# Float the fzf workspace picker (spawned with this title) instead of tiling it
+# onto workspace 1. Must come before the Ghostty rule below (first match wins).
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+if.window-title-regex-substring = 'aerospace-picker'
+run = 'layout floating'
+
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
 run = 'move-node-to-workspace 1'
@@ -102,6 +109,11 @@ ctrl-alt-8 = ['workspace 8', 'exec-and-forget open -a "Zen"']
 
 # Scratch / misc workspace for ad hoc apps
 ctrl-alt-0 = 'workspace M'
+
+# fzf workspace picker in a floating terminal (works from any app).
+# Use --command= not -e: -e trips Ghostty's exec-confirmation prompt, which also
+# delays --title and makes the float rule miss (window gets tiled onto ws 1).
+ctrl-alt-w = 'exec-and-forget open -na Ghostty.app --args --title=aerospace-picker --quit-after-last-window-closed=true --window-width=90 --window-height=22 --window-position-x=100 --window-position-y=100 --command=/Users/edsalkeld/.local/bin/aerospace-switch'
 
 # Move focused window to workspace (Shift sub-modifier)
 ctrl-alt-shift-1 = ['move-node-to-workspace 1', 'workspace 1']

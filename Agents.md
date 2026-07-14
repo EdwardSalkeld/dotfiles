@@ -67,6 +67,7 @@ Located in `home/dot-local/bin/`:
 | `push-to-staging` | Force push to staging branch with confirmation |
 | `daynote` | Daily note-taking utility |
 | `brew-install/save` | Homebrew management helpers |
+| `aerospace-switch` | fzf workspace picker for AeroSpace (`Ctrl+Alt+W`, floats over any app) |
 
 ## Shell Configuration
 
