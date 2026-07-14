@@ -70,6 +70,7 @@ Located in `home/dot-local/bin/`:
 | `aerospace-switch` | fzf workspace picker for AeroSpace (`Ctrl+Alt+W`, floats over any app) |
 | `aerospace-window` | fzf window/program picker for AeroSpace (`Ctrl+Alt+P`, cmd-tab style) |
 | `tmux-session-picker` | floating tmux session picker (`Ctrl+Opt+'`): jump to terminal + switch session |
+| `aerospace-app` | focus an app wherever it is (`Ctrl+Opt+G/S/O/L` → Ghostty/Slack/Outlook/Linear) |
 
 ## Shell Configuration
 

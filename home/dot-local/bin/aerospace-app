@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Focus an app by bundle id wherever it lives (any workspace), launching it if
+# it isn't running. Used by the Ctrl+Opt+<letter> app-jump bindings in
+# aerospace.toml.  Usage: aerospace-app <bundle-id> <app-name>
+
+# GUI-launched context may not inherit Homebrew's PATH
+export PATH="/opt/homebrew/bin:$PATH"
+
+bundle="$1"
+app="$2"
+
+id=$(aerospace list-windows --all --format '%{app-bundle-id}%{tab}%{window-id}' 2>/dev/null \
+  | awk -F '\t' -v b="$bundle" '$1 == b { print $2; exit }')
+
+if [ -n "$id" ]; then
+  aerospace focus --window-id "$id"
+else
+  open -a "$app"
+fi
