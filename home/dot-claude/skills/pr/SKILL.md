@@ -68,6 +68,8 @@ State which environment is affected, whether it's been tested, how easy it is to
 
 > `Quick to rollback via AWS console.`
 
+This is for real risk the reviewer needs to weigh — not reflexive "nothing else changed" reassurance. If there's no notable blast radius, say nothing.
+
 ### Say what it does and doesn't do yet
 
 When a PR is one step in a sequence, be explicit about scope.
@@ -94,6 +96,8 @@ Uncertainty, frustration, hackiness — say so. Credit AI tools when relevant.
 
 ### What to omit
 
+- No account of how you got here. Rebases, which commits you reconciled against, stale branches you were on, regenerated files, tooling detours — that's your process, not the change. Describe the change as it now stands on the base branch. If the reviewer wouldn't have known it happened, it doesn't belong. (Had you not been on stale code, you'd never have noticed the thing you're tempted to mention.)
+- No defensive reassurance about what you did *not* change: "validation still applies", "backend untouched", "no other behaviour affected". Naming something you left alone plants the doubt that you might have broken it — it worries more than it reassures. Say what changed; trust the diff for the rest.
 - No `## Summary` / `## Test plan` / `## Changes` section headers
 - No bullet-point changelogs restating the diff
 - No co-authored-by lines

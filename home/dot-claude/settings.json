@@ -6,7 +6,6 @@
       "Read(//Users/edsalkeld/.claude/skills/**)",
       "Read(~/.claude/settings.json)",
       "Read(~/personal/work-brain/**)",
-      "Write(~/personal/work-brain/**)",
       "Edit(~/personal/work-brain/**)",
       "Bash(git -C /Users/edsalkeld/personal/work-brain *)",
       "Bash(gh api *)",
@@ -66,6 +65,30 @@
             "command": "jq -r '.tool_input.command' | grep -qE -- '(^|[;&|])[[:space:]]*cd[[:space:]].*[;&][[:space:]]*git([[:space:]]|$)' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked: cd combined with git in one command. Use the git -C <path> <subcommand> form instead — it is already allowlisted and runs without a prompt. Re-issue the command with git -C.\"}}' || true"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/git-branch-guard.sh",
+            "if": "Bash(git *)",
+            "timeout": 20,
+            "statusMessage": "Checking base branch is current..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/git-freshness.sh",
+            "timeout": 20,
+            "statusMessage": "Checking git freshness..."
+          }
+        ]
       }
     ],
     "Stop": [
@@ -96,6 +119,7 @@
     "command": "bash ~/.claude/statusline-command.sh"
   },
   "alwaysThinkingEnabled": true,
+  "tui": "fullscreen",
   "theme": "auto",
-  "tui": "fullscreen"
+  "skipDangerousModePermissionPrompt": true
 }

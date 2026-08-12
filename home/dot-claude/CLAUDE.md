@@ -7,6 +7,7 @@
 ## Screenshots
 
 - Save screenshots to `~/screenshots/`, not to project directories or /tmp.
+- Group them in a task-specific subdirectory, e.g. `~/screenshots/<task-slug>/` (use the ticket id or a short descriptive slug). Don't dump loose files directly in `~/screenshots/`.
 
 ## Running code
 
