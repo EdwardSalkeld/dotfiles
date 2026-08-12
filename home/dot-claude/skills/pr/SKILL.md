@@ -1,6 +1,6 @@
 ---
 name: pr
-description: Create a GitHub pull request for the current branch. Always creates draft PRs with concise titles and descriptions.
+description: Create a GitHub pull request for the current branch. Always creates draft PRs with concise titles and a fixed placeholder description (the author writes the real description).
 user_invocable: true
 allowed-tools: Bash, Read
 ---
@@ -12,13 +12,12 @@ Create a draft PR for the current branch against main.
 ## Steps
 
 1. Run `git status` (never use `-uall`), `git diff main...HEAD --stat`, and `git log --oneline main..HEAD` in parallel to understand what's being proposed.
-2. Draft the title and description following the style rules below.
-3. **Never include Linear issue IDs in the PR title or description.** Linear automatically links PRs via branch names, so mentioning the ID is redundant.
-4. If args were passed (e.g. a Linear issue ID), include a link in the description only if it is NOT already in the branch name.
-5. Push the branch if needed, then create the PR:
+2. Draft the **title** following the style rules below. Do NOT write a description — use the fixed placeholder (see Description).
+3. **Never include Linear issue IDs in the PR title.** Linear automatically links PRs via branch names, so mentioning the ID is redundant.
+4. Push the branch if needed, then create the PR with the placeholder body:
 
 ```
-gh pr create --draft --title "<title>" --body "<body>"
+gh pr create --draft --title "<title>" --body "_Description to follow._"
 ```
 
 Return the PR URL when done.
@@ -40,73 +39,12 @@ Bad: `[EMP-123] Implement feature`
 
 ## Description
 
-### Lead with why
+**Never write a PR description.** Always create the PR with this exact placeholder body, verbatim:
 
-The title says what. The body explains **why** this change exists and **why it works this way**. Jump straight in — no "## Summary", no "This PR does X".
+```
+_Description to follow._
+```
 
-> `Old recommendations are pointless. So let them drop out of the cache.`
+The author rewrites every PR description themselves, so a drafted one is wasted effort. Do not summarise the change, explain the why, list commits, call out blast radius, or reference related PRs in the body — none of it. Just the placeholder. Put all your effort into the **title** instead (it's the only part that ships as-is).
 
-> `The Drizzle connection pool stays open after anonymisation, so deleting the temporary RDS instance crashes the process.`
-
-### Keep it short
-
-1–3 sentences is the norm. A paragraph at most. Only go longer when the context genuinely demands it (multi-step infra, data model design, tricky sequencing).
-
-### Explain the mechanism when non-obvious
-
-If the fix has a trick to it, explain briefly. Don't assume the reviewer knows the internals.
-
-> `S3 lifecycle rules can only filter on fixed key prefixes — so we tag snapshots with type=webcam-snapshot and expire tagged objects after 90 days.`
-
-> `DB constraint forces email_opt_out=True to require all individual emails are false. But you can resubscribe to one without unsetting opt out, so the save fails.`
-
-### Call out blast radius
-
-State which environment is affected, whether it's been tested, how easy it is to roll back. Especially for infra.
-
-> `No prod plan changes cause its all staging.`
-
-> `Quick to rollback via AWS console.`
-
-This is for real risk the reviewer needs to weigh — not reflexive "nothing else changed" reassurance. If there's no notable blast radius, say nothing.
-
-### Say what it does and doesn't do yet
-
-When a PR is one step in a sequence, be explicit about scope.
-
-> `Gets employer_url into the API. There's more to come to make it conditional in another PR.`
-
-> `It won't start sending yet (there's a switch in the lambda code).`
-
-### Reference related PRs
-
-Use `#N` for PRs in the same repo. For cross-repo references, use full GitHub URLs (e.g. `https://github.com/org/repo/pull/N`) since `repo#N` shorthand doesn't render as a link on GitHub.
-
-> `Depends on https://github.com/brightnetwork/terraform-modules/pull/80.`
-
-> `Builds on #16332.`
-
-### Be honest
-
-Uncertainty, frustration, hackiness — say so. Credit AI tools when relevant.
-
-> `This is Claude's best guess. It seems reasonable but I'm not optimistic.`
-
-> `It's a bit nasty. The whole button wants some serious re-writing.`
-
-### What to omit
-
-- No account of how you got here. Rebases, which commits you reconciled against, stale branches you were on, regenerated files, tooling detours — that's your process, not the change. Describe the change as it now stands on the base branch. If the reviewer wouldn't have known it happened, it doesn't belong. (Had you not been on stale code, you'd never have noticed the thing you're tempted to mention.)
-- No defensive reassurance about what you did *not* change: "validation still applies", "backend untouched", "no other behaviour affected". Naming something you left alone plants the doubt that you might have broken it — it worries more than it reassures. Say what changed; trust the diff for the rest.
-- No `## Summary` / `## Test plan` / `## Changes` section headers
-- No bullet-point changelogs restating the diff
-- No co-authored-by lines
-- No emoji
-- No "Generated with" footers
-- No em dashes. Use regular dashes or rewrite the sentence.
-- No "Companion to", "Builds on", or similar filler when the PR is already referenced in the body. Don't repeat information - if a PR is mentioned in context, don't add a separate line restating the relationship.
-- Empty body is fine when the title says everything
-
-### Voice
-
-Conversational and direct. First person. Talking to teammates, not writing docs.
+If context genuinely needs to reach the author (e.g. "this depends on #123"), it goes in your report back to the caller, not in the PR body.

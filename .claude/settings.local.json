@@ -87,7 +87,18 @@
       "Bash(sed 's|/Users/edsalkeld/.local/share/nvim/lazy/||')",
       "Read(//Users/edsalkeld/.local/share/nvim/lazy/treesitter-utils/**)",
       "Bash(gh auth *)",
-      "Bash(echo \"login: $\\(gh api user --jq .login \\)\")"
+      "Bash(echo \"login: $\\(gh api user --jq .login \\)\")",
+      "Bash(bash -n /Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos -n ~/code)",
+      "Bash(kill %1)",
+      "Bash(pkill -f \"tidy-repos -n\")",
+      "Read(//Users/edsalkeld/code/algolia-stats/**)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos ~/code/website)",
+      "Read(//Users/edsalkeld/code/website/**)",
+      "Bash(gh pr *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(bash -c ' *)"
     ],
     "deny": []
   }

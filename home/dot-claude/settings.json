@@ -120,6 +120,7 @@
   },
   "alwaysThinkingEnabled": true,
   "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
   "theme": "auto",
-  "skipDangerousModePermissionPrompt": true
+  "model": "sonnet"
 }
