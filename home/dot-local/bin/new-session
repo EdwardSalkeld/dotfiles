@@ -4,7 +4,8 @@
 if [[ $# -eq 1 ]]; then
   selected=$1
 else
-  selected=$(find ~/code ~/develop ~/personal -mindepth 1 -maxdepth 1 -type d | fzf --tmux)
+  roots=(); for d in ~/code ~/develop ~/personal; do [[ -d $d ]] && roots+=("$d"); done
+  selected=$(find "${roots[@]}" -mindepth 1 -maxdepth 1 -type d | fzf --tmux)
 fi
 
 if [[ -z $selected ]]; then
