@@ -63,6 +63,8 @@ brew "mysql-client"
 brew "ncmpcpp"
 # Ambitious Vim-fork focused on extensibility and agility
 brew "neovim"
+# Parser generator CLI; required by nvim-treesitter main branch to build parsers
+brew "tree-sitter-cli"
 # Port scanning utility for large networks
 brew "nmap"
 # Manage multiple Node.js versions
