@@ -112,6 +112,7 @@ alias nrw='npm run watch'
 alias grom='git rebase origin/main'
 alias dcw='docker compose --file ~/code/website/docker-compose.yml -f ~/code/website/docker-compose.override.yml'
 alias ts='tig status'
+alias danger='claude --dangerously-skip-permissions'
 
 # navigation aliases
 alias rdot='swap-session ~/personal/dotfiles'
