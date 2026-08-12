@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Tidy git repos: either every non-worktree repo under a directory, or a single
+# repo if pointed straight at one.
+#   1. prune stale worktree admin data (git worktree prune)
+#   2. delete local branches that are safe to drop:
+#        - fully pushed (tip already on a remote), or
+#        - already merged into the default branch, including squash-merges
+#          (where the branch's commits were rewritten and no longer match)
+#   3. log branches that survive (they hold genuinely unpushed work)
+#
+#   tidy-repos            -> dry run over cwd, delete nothing
+#   tidy-repos <dir>      -> dry run over <dir>
+#   tidy-repos -x <dir>   -> execute the deletions
+set -euo pipefail
+
+dry=1
+[ "${1:-}" = "-x" ] && { dry=0; shift; }
+
+root="${1:-$PWD}"
+[ -d "$root" ] || { echo "tidy-repos: no such dir: $root" >&2; exit 1; }
+
+bold=$'\e[1m'; dim=$'\e[2m'; yellow=$'\e[33m'; green=$'\e[32m'; reset=$'\e[0m'
+
+# Is $branch already merged into $mainref, even via squash? Rebuild the branch
+# as a single commit on top of its merge-base, then let git cherry check whether
+# a patch-equivalent commit already exists upstream (a leading '-' means yes).
+squash_merged() {
+  local repo="$1" branch="$2" mainref="$3" base tree synth
+  base="$(git -C "$repo" merge-base "$mainref" "$branch" 2>/dev/null)" || return 1
+  tree="$(git -C "$repo" rev-parse "$branch^{tree}" 2>/dev/null)" || return 1
+  synth="$(git -C "$repo" commit-tree "$tree" -p "$base" -m _ 2>/dev/null)" || return 1
+  case "$(git -C "$repo" cherry "$mainref" "$synth" 2>/dev/null)" in
+    -*) return 0 ;;
+    *)  return 1 ;;
+  esac
+}
+
+tidy_repo() {
+  repo="$1"
+  echo "${bold}${repo##*/}${reset}"
+
+  git -C "$repo" fetch --quiet --prune 2>/dev/null || echo "  ${yellow}fetch failed (offline?)${reset}"
+  git -C "$repo" worktree prune
+
+  # Never delete: the default branch, or anything checked out in a worktree.
+  protected=" main  master "
+  def="$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  [ -n "$def" ] && protected="$protected ${def#origin/} "
+  while read -r p; do
+    [ -n "$p" ] && protected="$protected $p "
+  done < <(git -C "$repo" worktree list --porcelain | sed -n 's#^branch refs/heads/##p')
+
+  # The ref to test merges against: prefer the remote default branch (most up to
+  # date), fall back to a local main/master.
+  mainref="$def"
+  [ -n "$mainref" ] && ! git -C "$repo" rev-parse --verify --quiet "$mainref^{commit}" >/dev/null 2>&1 && mainref=""
+  if [ -z "$mainref" ]; then
+    for c in origin/main origin/master main master; do
+      git -C "$repo" rev-parse --verify --quiet "$c^{commit}" >/dev/null 2>&1 && { mainref="$c"; break; }
+    done
+  fi
+
+  leftover=""
+  while read -r branch; do
+    [ -z "$branch" ] && continue
+    case "$protected" in *" $branch "*) continue ;; esac
+
+    tip="$(git -C "$repo" rev-parse "$branch")"
+    reason=""
+    if git -C "$repo" branch -r --contains "$tip" 2>/dev/null | grep -q .; then
+      reason="pushed"
+    elif [ -n "$mainref" ] && squash_merged "$repo" "$branch" "$mainref"; then
+      reason="merged"
+    fi
+
+    if [ -n "$reason" ]; then
+      if [ "$dry" = 1 ]; then
+        echo "  ${dim}would delete${reset} $branch ${dim}($reason)${reset}"
+      else
+        git -C "$repo" branch -D "$branch" >/dev/null
+        echo "  ${green}deleted${reset} $branch ${dim}($reason)${reset}"
+      fi
+    else
+      leftover="$leftover$branch"$'\n'
+    fi
+  done < <(git -C "$repo" for-each-ref --format='%(refname:short)' refs/heads/)
+
+  if [ -n "$leftover" ]; then
+    echo "  ${yellow}kept (unpushed):${reset}"
+    printf '%s' "$leftover" | while read -r b; do echo "    $b"; done
+  fi
+  echo
+}
+
+# A main clone has .git as a directory; a linked worktree has it as a file.
+if [ -d "$root/.git" ]; then
+  tidy_repo "$root"
+else
+  for repo in "$root"/*/; do
+    repo="${repo%/}"
+    [ -d "$repo/.git" ] || continue
+    tidy_repo "$repo"
+  done
+fi
