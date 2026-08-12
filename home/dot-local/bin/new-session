@@ -1,34 +1,62 @@
 #!/usr/bin/env bash
+# Start a task: a tmux session backed by fresh git worktree(s).
+#
+#   new-session                 -> fzf pick a repo or group, then type a label
+#   new-session <repo|group> [label]
+#   new-session <existing-dir>  -> legacy: just open a plain session there
+#
+# Task name is YYMMDD-<label>. Symmetric layout — one subdir per repo:
+#   ~/worktrees/<task>/<repo>        (single-repo sessions land inside the repo)
+# so a single-repo task grows into a group task by adding a sibling worktree
+# (see expand-session). Worktrees are disposable — push anything that matters.
+set -euo pipefail
 
-# wholeheartedly pinched from https://github.com/ThePrimeagen/.dotfiles/
-if [[ $# -eq 1 ]]; then
-  selected=$1
-else
-  roots=(); for d in ~/code ~/develop ~/personal; do [[ -d $d ]] && roots+=("$d"); done
-  selected=$(find "${roots[@]}" -mindepth 1 -maxdepth 1 -type d | fzf --tmux)
-fi
+CODE="$HOME/code"
+WT="$HOME/worktrees"
+declare -A SBX_GROUPS=( [web]="website terraform-website" )
 
-if [[ -z $selected ]]; then
-  exit 0
-fi
-
-selected_name=$(basename "$selected" | tr . _)
-tmux_running=$(pgrep tmux)
-
-join_session() {
-  if [[ -z $TMUX ]]; then
-    tmux attach -t=$selected_name
-  else
-    tmux switch-client -t=$selected_name
-  fi
+open() { # $1 = session, $2 = start dir
+  tmux has-session -t "$1" 2>/dev/null || tmux new-session -ds "$1" -c "$2"
+  if [ -z "${TMUX:-}" ]; then exec tmux attach -t "$1"; else exec tmux switch-client -t "$1"; fi
 }
 
-if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-  tmux new-session -ds $selected_name -c $selected
-  tmux send-keys -t $selected_name 'session-launch' C-m
-elif ! tmux has-session -t=$selected_name 2>/dev/null; then
-  tmux new-session -ds $selected_name -c $selected
-  tmux send-keys -t $selected_name 'session-launch' C-m
+# legacy: a path to an existing dir -> plain session there (e.g. ~/personal/notes)
+if [ "${1:-}" ] && [ -d "$1" ]; then
+  open "$(basename "$1" | tr . _)" "$1"
 fi
 
-join_session
+# pick a project (repo or group)
+project="${1:-}"
+if [ -z "$project" ]; then
+  project=$( { printf 'group:%s\n' "${!SBX_GROUPS[@]}"
+               find "$CODE" -mindepth 1 -maxdepth 1 -type d -exec test -e '{}/.git' ';' -print \
+                 | sed 's#.*/#repo:#'; } | sort | fzf --tmux --prompt='new task > ' ) || exit 0
+fi
+[ -z "$project" ] && exit 0
+
+# resolve to a repo list
+name="${project#*:}"
+if [ -n "${SBX_GROUPS[$name]:-}" ]; then repos=(${SBX_GROUPS[$name]}); else repos=("$name"); fi
+
+# label (free text via fzf's query when not given). fzf exits non-zero when the
+# typed query matches nothing (which is normal here) — don't let set -e kill us.
+label="${2:-}"
+if [ -z "$label" ]; then
+  label=$( </dev/null fzf --tmux --print-query --prompt="label for $name > " | head -1 ) || true
+fi
+label="${label// /-}"
+[ -z "$label" ] && exit 0
+
+task="$(date +%y%m%d)-$label"
+taskdir="$WT/$task"
+mkdir -p "$taskdir"
+# stdout must stay clean: new-session is called via fzf `become` inside
+# swap-session's $(...) capture, so any stdout becomes a bogus switch target.
+for r in "${repos[@]}"; do
+  [ -e "$taskdir/$r" ] && continue
+  git -C "$CODE/$r" worktree add "$taskdir/$r" -b "$label" 2>/dev/null \
+    || git -C "$CODE/$r" worktree add "$taskdir/$r" "$label"
+done 1>&2
+
+start="$taskdir"; [ "${#repos[@]}" -eq 1 ] && start="$taskdir/${repos[0]}"
+open "$task" "$start"

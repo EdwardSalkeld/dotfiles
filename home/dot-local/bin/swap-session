@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
+# Move to a task view — any EXISTING worktree-task (~/worktrees) or live session.
+# Switches to it if it's running, resumes it if not; same intent either way.
+# ctrl-n starts a new task.
+[[ -z ${TMUX:-} ]] && { echo "Not running tmux!"; exit 1; }
 
-if [[ -z $TMUX ]]; then
-  echo "Not running tmux!"
-  exit 1
+WT="$HOME/worktrees"
+selected=$( { find "$WT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null
+              tmux list-sessions -F '#{session_name}' 2>/dev/null; } \
+            | sort -u \
+            | fzf --tmux --reverse --cycle --header="ctrl-n: new task" \
+                  --bind="ctrl-n:become(new-session)" )
+
+[[ -z $selected ]] && exit 0
+
+if tmux has-session -t "$selected" 2>/dev/null; then
+  tmux switch-client -t "$selected"
+else
+  resume-session "$selected"
 fi
-
-selected=$(tmux list-sessions -F '#{session_name}' | fzf --tmux --reverse --cycle --header="ctrl-n: new session" --bind="ctrl-n:become(new-session)")
-
-if [[ -z $selected ]]; then
-  exit 0
-fi
-
-tmux switch-client -t "$selected"

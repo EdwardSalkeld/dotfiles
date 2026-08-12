@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Tear down a task: remove its worktree(s) + branch(es) and kill the tmux session.
+# Safe by default — refuses if any worktree has uncommitted or unpushed work.
+# Usage: teardown-session [task] [--force]   (task defaults to the current session)
+set -uo pipefail
+
+CODE="$HOME/code"; WT="$HOME/worktrees"
+
+force=0; task=""
+for a in "$@"; do
+  case "$a" in
+    --force) force=1 ;;
+    *)       task="$a" ;;
+  esac
+done
+[ -z "$task" ] && task="$(tmux display-message -p '#S' 2>/dev/null)"
+
+taskdir="$WT/$task"
+[ -d "$taskdir" ] || { echo "not a task session (no $taskdir)"; exit 1; }
+
+# Safety pass: block on anything that would lose work.
+blockers=""
+for wt in "$taskdir"/*/; do
+  [ -e "$wt/.git" ] || continue
+  repo="$(basename "$wt")"
+  [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && blockers+="  $repo: uncommitted changes"$'\n'
+  [ -n "$(git -C "$wt" log --oneline HEAD --not --remotes 2>/dev/null)" ] && blockers+="  $repo: unpushed commits"$'\n'
+done
+if [ -n "$blockers" ] && [ "$force" -ne 1 ]; then
+  printf "refusing to tear down '%s' — would lose work:\n%s" "$task" "$blockers"
+  echo "commit+push first, or: teardown-session $task --force"
+  exit 1
+fi
+
+# Remove worktrees + their branches.
+rmflag=""; [ "$force" -eq 1 ] && rmflag="--force"
+for wt in "$taskdir"/*/; do
+  [ -e "$wt/.git" ] || continue
+  repo="$(basename "$wt")"
+  branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  git -C "$CODE/$repo" worktree remove $rmflag "$wt" 2>/dev/null
+  [ -n "$branch" ] && [ "$branch" != HEAD ] && git -C "$CODE/$repo" branch -D "$branch" >/dev/null 2>&1
+  git -C "$CODE/$repo" worktree prune 2>/dev/null
+done
+rm -rf "$taskdir"
+
+# End the session (tmux moves the client to another session, or exits if last).
+tmux kill-session -t "$task" 2>/dev/null
