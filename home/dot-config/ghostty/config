@@ -49,6 +49,9 @@ theme = light:Catppuccin Latte,dark:Catppuccin Frappe
 #font-family = Ubuntu Mono
 font-family = Monaspace Argon Regular
 font-size = 20
+
+# Allow OSC52 clipboard writes (so tmux yanks from the sbx box reach the clipboard)
+clipboard-write = allow
 # macos-option-as-alt = left
 
 ##### RELOAD ME WITH cmd+shift+, 
