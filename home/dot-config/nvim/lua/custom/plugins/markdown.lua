@@ -10,7 +10,11 @@ return {
     },
   },
   {
-    'nfrid/markdown-togglecheck',
+    -- Fork of nfrid/markdown-togglecheck: upstream requires the removed
+    -- `nvim-treesitter.ts_utils` module and breaks on nvim-treesitter's `main`
+    -- branch. The fork uses the Neovim built-in instead. Upstream PR pending.
+    'EdwardSalkeld/markdown-togglecheck',
+    branch = 'fix-nvim-treesitter-main-compat',
     dependencies = { 'nfrid/treesitter-utils' },
     ft = { 'markdown' },
     opts = {},

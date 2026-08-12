@@ -1112,56 +1112,114 @@ require('lazy').setup({
   },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    -- The legacy `master` branch is frozen and breaks on Neovim 0.12+. `main`
+    -- is the actively developed rewrite; its API differs completely (per-buffer
+    -- `vim.treesitter.start()` rather than a `configs`-module opts table).
+    branch = 'main',
     build = ':TSUpdate',
+    lazy = false,
     dependencies = {
-      'nvim-treesitter/nvim-treesitter-textobjects',
+      { 'nvim-treesitter/nvim-treesitter-textobjects', branch = 'main' },
     },
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
-    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
-    opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = true,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby' },
-      },
-      indent = { enable = true, disable = { 'ruby' } },
-      textobjects = {
-        select = {
-          enable = true,
-          lookahead = true, -- Automatically jump forward to textobj
-          keymaps = {
-            ['af'] = '@function.outer',
-            ['if'] = '@function.inner',
-            ['ac'] = '@class.outer',
-            ['ic'] = '@class.inner',
-            ['aa'] = '@parameter.outer',
-            ['ia'] = '@parameter.inner',
-          },
-        },
-        move = {
-          enable = true,
-          set_jumps = true,
-          goto_next_start = {
-            [']m'] = '@function.outer',
-            [']]'] = '@class.outer',
-          },
-          goto_prev_start = {
-            ['[m'] = '@function.outer',
-            ['[['] = '@class.outer',
-          },
-        },
-        swap = {
-          enable = true,
-          swap_next = { ['<leader>a'] = '@parameter.inner' },
-          swap_previous = { ['<leader>A'] = '@parameter.inner' },
-        },
-      },
-    },
+    config = function()
+      local ts = require 'nvim-treesitter'
+
+      -- Parsers to install up front; anything else is installed on demand below.
+      ts.install {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+      }
+
+      -- Languages that still want Vim's regex highlighting (e.g. Ruby, whose
+      -- indent rules depend on it) and where treesitter indent misbehaves.
+      local regex_highlight = { ruby = true }
+      local no_ts_indent = { ruby = true }
+
+      local function attach(buf, language)
+        if not vim.treesitter.language.add(language) then
+          return
+        end
+        vim.treesitter.start(buf, language)
+        if regex_highlight[language] then
+          vim.bo[buf].syntax = 'on'
+        end
+        if not no_ts_indent[language] and vim.treesitter.query.get(language, 'indents') then
+          vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+        end
+      end
+
+      -- On `main` highlighting is not global: start it per-buffer, installing
+      -- the parser on demand if we have it available but not yet compiled.
+      vim.api.nvim_create_autocmd('FileType', {
+        group = vim.api.nvim_create_augroup('kickstart-treesitter', { clear = true }),
+        callback = function(args)
+          local buf = args.buf
+          local language = vim.treesitter.language.get_lang(args.match)
+          if not language then
+            return
+          end
+          if vim.tbl_contains(ts.get_installed 'parsers', language) then
+            attach(buf, language)
+          elseif vim.tbl_contains(ts.get_available(), language) then
+            ts.install(language):await(function()
+              if vim.api.nvim_buf_is_valid(buf) then
+                attach(buf, language)
+              end
+            end)
+          end
+        end,
+      })
+
+      require('nvim-treesitter-textobjects').setup {
+        select = { lookahead = true },
+        move = { set_jumps = true },
+      }
+
+      local ts_select = require 'nvim-treesitter-textobjects.select'
+      local ts_move = require 'nvim-treesitter-textobjects.move'
+      local ts_swap = require 'nvim-treesitter-textobjects.swap'
+
+      local function select_map(key, query)
+        vim.keymap.set({ 'x', 'o' }, key, function()
+          ts_select.select_textobject(query, 'textobjects')
+        end, { desc = 'Select ' .. query })
+      end
+      select_map('af', '@function.outer')
+      select_map('if', '@function.inner')
+      select_map('ac', '@class.outer')
+      select_map('ic', '@class.inner')
+      select_map('aa', '@parameter.outer')
+      select_map('ia', '@parameter.inner')
+
+      vim.keymap.set('n', ']m', function()
+        ts_move.goto_next_start('@function.outer', 'textobjects')
+      end, { desc = 'Next function start' })
+      vim.keymap.set('n', ']]', function()
+        ts_move.goto_next_start('@class.outer', 'textobjects')
+      end, { desc = 'Next class start' })
+      vim.keymap.set('n', '[m', function()
+        ts_move.goto_previous_start('@function.outer', 'textobjects')
+      end, { desc = 'Previous function start' })
+      vim.keymap.set('n', '[[', function()
+        ts_move.goto_previous_start('@class.outer', 'textobjects')
+      end, { desc = 'Previous class start' })
+
+      vim.keymap.set('n', '<leader>a', function()
+        ts_swap.swap_next '@parameter.inner'
+      end, { desc = 'Swap next parameter' })
+      vim.keymap.set('n', '<leader>A', function()
+        ts_swap.swap_previous '@parameter.inner'
+      end, { desc = 'Swap previous parameter' })
+    end,
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
