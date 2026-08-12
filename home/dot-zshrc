@@ -129,8 +129,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Created by `pipx` on 2025-02-18 14:05:37
-export PATH="$PATH:/Users/edsalkeld/.local/bin"
-export PATH="$PATH:/Users/edward/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
 
 # FZF is nice for command history
 source <(fzf --zsh)
