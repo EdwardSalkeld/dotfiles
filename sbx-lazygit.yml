@@ -1,0 +1,9 @@
+# Box-only lazygit config: create PRs via gh (the sandbox has no browser for the
+# default `o` open-in-browser). `O` drops to the terminal and runs gh pr create;
+# title at the prompt, body in nvim.
+customCommands:
+  - key: 'O'
+    context: 'localBranches'
+    description: 'Create PR via gh'
+    command: 'gh pr create'
+    subprocess: true

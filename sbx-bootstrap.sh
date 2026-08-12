@@ -22,7 +22,9 @@ link "$HOME/personal/dotfiles/sbx-tmux.conf" ~/.tmux.conf   # box override: sour
 link "$DOT/dot-config/nvim"            ~/.config/nvim
 link "$DOT/dot-local/bin"              ~/.local/bin
 link "$DOT/dot-local/tmux"             ~/.local/tmux
-echo "  linked: .zshrc .vimrc .tmux.conf(box) .config/nvim .local/{bin,tmux}"
+mkdir -p ~/.config/lazygit
+link "$HOME/personal/dotfiles/sbx-lazygit.yml" ~/.config/lazygit/config.yml   # box: gh PR keybind
+echo "  linked: .zshrc .vimrc .tmux.conf(box) .config/nvim .config/lazygit(box) .local/{bin,tmux}"
 
 # Neovim plugins (Kickstart + lazy.nvim self-bootstrap; restore pins to lazy-lock).
 if [ ! -d ~/.local/share/nvim/lazy/lazy.nvim ]; then
