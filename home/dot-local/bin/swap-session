@@ -16,5 +16,11 @@ selected=$( { find "$WT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/n
 if tmux has-session -t "$selected" 2>/dev/null; then
   tmux switch-client -t "$selected"
 else
-  resume-session "$selected"
+  # not live -> open a session for the worktree-task. cwd matches new-session:
+  # single-repo task lands inside the repo; group at the task dir.
+  taskdir="$WT/$selected"
+  subs=( "$taskdir"/*/ )
+  start="$taskdir"; [ "${#subs[@]}" -eq 1 ] && [ -d "${subs[0]}" ] && start="$taskdir/$(basename "${subs[0]}")"
+  tmux new-session -ds "$selected" -c "$start"
+  tmux switch-client -t "$selected"
 fi
