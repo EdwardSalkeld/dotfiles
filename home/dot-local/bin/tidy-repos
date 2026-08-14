@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Tidy git repos: either every non-worktree repo under a directory, or a single
 # repo if pointed straight at one.
-#   1. prune stale worktree admin data (git worktree prune)
-#   2. delete local branches that are safe to drop:
+#   1. remove clean linked worktrees (git worktree remove, never --force, so a
+#      worktree with local or untracked changes is left untouched)
+#   2. prune stale worktree admin data (git worktree prune)
+#   3. delete local branches that are safe to drop:
 #        - fully pushed (tip already on a remote), or
 #        - already merged into the default branch, including squash-merges
 #          (where the branch's commits were rewritten and no longer match)
-#   3. log branches that survive (they hold genuinely unpushed work)
+#   4. log branches that survive (they hold genuinely unpushed work)
 #
 #   tidy-repos            -> dry run over cwd, delete nothing
 #   tidy-repos <dir>      -> dry run over <dir>
@@ -40,6 +42,25 @@ tidy_repo() {
   echo "${bold}${repo##*/}${reset}"
 
   git -C "$repo" fetch --quiet --prune 2>/dev/null || echo "  ${yellow}fetch failed (offline?)${reset}"
+
+  # Remove clean linked worktrees. Never --force: git refuses to remove a
+  # worktree with modified or untracked files, so nothing unsaved is lost.
+  while read -r wt; do
+    [ -f "$wt/.git" ] || continue   # only linked worktrees, never the main checkout
+    name="${wt##*/}"
+    if [ "$dry" = 1 ]; then
+      if [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then
+        echo "  ${dim}would remove worktree${reset} $name"
+      else
+        echo "  ${yellow}keep worktree (local changes)${reset} $name"
+      fi
+    elif git -C "$repo" worktree remove "$wt" 2>/dev/null; then
+      echo "  ${green}removed worktree${reset} $name"
+    else
+      echo "  ${yellow}kept worktree (local changes)${reset} $name"
+    fi
+  done < <(git -C "$repo" worktree list --porcelain | sed -n 's#^worktree ##p')
+
   git -C "$repo" worktree prune
 
   # Never delete: the default branch, or anything checked out in a worktree.

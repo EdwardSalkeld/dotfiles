@@ -13,7 +13,11 @@ set -euo pipefail
 
 CODE="$HOME/code"
 WT="$HOME/worktrees"
-declare -A SBX_GROUPS=( [web]="website terraform-website" )
+declare -A REPO_GROUPS=(
+  [web]="website terraform-website"
+  [brightapply]="bright-apply terraform-bright-apply"
+  [talenttracker]="talent-tracker terraform-talent-tracker"
+)
 
 open() { # $1 = session, $2 = start dir
   tmux has-session -t "$1" 2>/dev/null || tmux new-session -ds "$1" -c "$2"
@@ -28,7 +32,7 @@ fi
 # pick a project (repo or group)
 project="${1:-}"
 if [ -z "$project" ]; then
-  project=$( { printf 'group:%s\n' "${!SBX_GROUPS[@]}"
+  project=$( { printf 'group:%s\n' "${!REPO_GROUPS[@]}"
                find "$CODE" -mindepth 1 -maxdepth 1 -type d -exec test -e '{}/.git' ';' -print \
                  | sed 's#.*/#repo:#'; } | sort | fzf --tmux --prompt='new task > ' ) || exit 0
 fi
@@ -36,7 +40,7 @@ fi
 
 # resolve to a repo list
 name="${project#*:}"
-if [ -n "${SBX_GROUPS[$name]:-}" ]; then repos=(${SBX_GROUPS[$name]}); else repos=("$name"); fi
+if [ -n "${REPO_GROUPS[$name]:-}" ]; then repos=(${REPO_GROUPS[$name]}); else repos=("$name"); fi
 
 # label (free text via fzf's query when not given). fzf exits non-zero when the
 # typed query matches nothing (which is normal here) — don't let set -e kill us.
