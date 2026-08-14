@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start a task: a tmux session backed by a fresh ~/sessions/<task> workspace.
-# The dir gets an AGENTS.md telling the agent the working agreement — code lives
+# The dir gets a CLAUDE.md telling the agent the working agreement — code lives
 # in ~/code, work happens on git worktrees created into the session dir. Worktree
 # management is the agent's job; this script just makes the space and opens tmux.
 #
@@ -35,8 +35,8 @@ taskdir="$SESSIONS/$task"
 mkdir -p "$taskdir"
 
 # Working agreement for the agent. Written once so re-running is harmless.
-if [ ! -e "$taskdir/AGENTS.md" ]; then
-  cat > "$taskdir/AGENTS.md" <<'AGENTS'
+if [ ! -e "$taskdir/CLAUDE.md" ]; then
+  cat > "$taskdir/CLAUDE.md" <<'AGENTS'
 # This is a task session
 
 Your workspace is this directory. Do your work here.
@@ -57,9 +57,9 @@ If a repo uses a local per-worktree DB, seed it after creating the worktree:
 run `wt-db load` inside it (`wt-db promote` snapshots the current DB as the seed).
 
 ## Before you finish
-Commit and **push** your branch(es). Teardown refuses on uncommitted/unpushed
-work, and these working dirs are wiped on a box recreate (commits are safe in
-`~/code/<repo>/.git`; uncommitted working state is not).
+Push anything worth keeping. **Teardown destroys** this session's worktrees, and
+a box recreate wipes them too — committed work is safe in `~/code/<repo>/.git`,
+but uncommitted or unpushed work is gone for good.
 AGENTS
 fi
 
