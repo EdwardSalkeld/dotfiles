@@ -44,3 +44,10 @@
 - **Before opening a PR against main**, the gitops agent must check that the branch is reasonably up to date with `origin/main` (fetch and compare). If there are significant commits on main that aren't in the branch, reject and ask for a rebase before proceeding.
 - **When pushing further changes to an existing PR**, the gitops agent (or orchestrator) must review the PR description and update it if anything is now stale or inaccurate. Rebases, resolved conflicts, and merged dependencies can all invalidate earlier descriptions.
 
+## Dev servers in the sbx sandbox
+
+Only when running **inside the sandbox box** — i.e. `uname` is `Linux` (your Mac is Darwin) — the user reaches your services from their Mac, not the box's localhost. So whenever you start a dev server or report its URL:
+
+- **Bind to `0.0.0.0`**, never `127.0.0.1`/`localhost` (`HOST=0.0.0.0`, `--host 0.0.0.0`, `-b 0.0.0.0`, etc.). A localhost-bound port is unreachable from the Mac.
+- **Report the URL as `http://<box>.sbx:<port>`**, where `<box>` is `hostname` (the box registers under the `.sbx` domain, e.g. `work.sbx`) — never `http://localhost:<port>` or a raw IP. The `.sbx` name is stable across recreate; the IP isn't.
+
