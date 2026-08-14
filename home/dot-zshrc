@@ -114,14 +114,6 @@ alias dcw='docker compose --file ~/code/website/docker-compose.yml -f ~/code/web
 alias ts='tig status'
 alias danger='claude --dangerously-skip-permissions'
 
-# navigation aliases
-alias rdot='swap-session ~/personal/dotfiles'
-alias rweb='swap-session ~/code/website'
-alias rtt='swap-session ~/code/talent-tracker'
-alias rnot='swap-session ~/personal/notes'
-alias rrnp='swap-session rumandpopcorn/'
-alias rhos='swap-session house/'
-
 # new navigation work
 alias ss='swap-window'
 
