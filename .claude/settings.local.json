@@ -100,7 +100,16 @@
       "Bash(echo \"exit: $?\")",
       "Bash(bash -c ' *)",
       "Bash(bash /private/tmp/claude-503/-Users-edsalkeld-personal-dotfiles/5abf75b5-ee56-47c5-acf5-3fc6089c84d6/scratchpad/reorg-code.sh go)",
-      "Bash(ls -la \"/Library/Managed Installs/Logs/\" 2>&1 | head -40)"
+      "Bash(ls -la \"/Library/Managed Installs/Logs/\" 2>&1 | head -40)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --help)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --fresh ~/code/bn/website)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --hard ~/code/bn/website)",
+      "Bash(git -C ~/code/github for-each-ref --format='  %\\(refname:short\\)  [HEAD=%\\(HEAD\\)]' refs/heads/)",
+      "Bash(git -C ~/code/github symbolic-ref --quiet --short HEAD)",
+      "Bash(echo \"current: $\\(git -C ~/code/github symbolic-ref --quiet --short HEAD\\)\")",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --hard ~/code/github)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos ~/code/github)",
+      "Bash(~/personal/dotfiles/home/dot-local/bin/tidy-repos --hard ~/code)"
     ],
     "deny": []
   }

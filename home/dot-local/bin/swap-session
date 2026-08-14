@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Move to a task view — any existing worktree-task (~/worktrees) or live session,
-# most-recently-used first. Switches if it's running, resumes it if not.
-# The fzf preview shows what each task is doing (live: its panes; stopped: git
-# status). ctrl-n starts a new task.
+# Move to a task view — any existing session dir (~/sessions) or live tmux
+# session, most-recently-used first. Switches if it's running, resumes it (opens
+# a session in the dir) if not — so tasks survive a box restart. The fzf preview
+# shows what each task is doing (live: its panes; stopped: worktree git status).
+# ctrl-n starts a new task.
 set -uo pipefail
-WT="$HOME/worktrees"
+SESSIONS="$HOME/sessions"
 
 # --- preview mode: fzf calls `swap-session --preview <name>` for the highlight
 if [ "${1:-}" = "--preview" ]; then
@@ -15,11 +16,14 @@ if [ "${1:-}" = "--preview" ]; then
       -F '  #{window_index}.#{pane_index}  [#{pane_current_command}]  #{pane_title}' 2>/dev/null
   else
     printf '○ stopped\n'
-    for w in "$WT/$name"/*/; do
-      [ -d "$w" ] || continue
+    found=0
+    for w in "$SESSIONS/$name"/*/; do
+      [ -e "$w/.git" ] || continue
+      found=1
       printf '\n── %s ──\n' "$(basename "$w")"
       git -C "$w" -c color.ui=always status -sb 2>/dev/null | head -8
     done
+    [ "$found" = 0 ] && printf '\n(no worktrees yet)\n'
   fi
   exit 0
 fi
@@ -30,7 +34,7 @@ fi
 live_names=$(tmux list-sessions -F '#{session_name}' 2>/dev/null)
 mru=$( {
   tmux list-sessions -F '#{session_last_attached}'$'\t''#{session_name}' 2>/dev/null
-  for d in "$WT"/*/; do
+  for d in "$SESSIONS"/*/; do
     [ -d "$d" ] || continue
     n=$(basename "$d")
     grep -qxF "$n" <<<"$live_names" && continue   # skip tasks that are already live
@@ -48,9 +52,6 @@ selected=$( printf '%s\n' "$mru" \
 if tmux has-session -t "$selected" 2>/dev/null; then
   tmux switch-client -t "$selected"
 else
-  taskdir="$WT/$selected"
-  subs=( "$taskdir"/*/ )
-  start="$taskdir"; [ "${#subs[@]}" -eq 1 ] && [ -d "${subs[0]}" ] && start="$taskdir/$(basename "${subs[0]}")"
-  tmux new-session -ds "$selected" -c "$start"
+  tmux new-session -ds "$selected" -c "$SESSIONS/$selected"
   tmux switch-client -t "$selected"
 fi

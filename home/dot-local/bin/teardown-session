@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Tear down a task: remove its worktree(s) + branch(es) and kill the tmux session.
-# Safe by default — refuses if any worktree has uncommitted or unpushed work.
+# Tear down a task: remove the worktree(s) the agent created in its session dir
+# (+ their branches) and kill the tmux session. Safe by default — refuses if any
+# worktree has uncommitted or unpushed work.
 # Usage: teardown-session [task] [--force]   (task defaults to the current session)
 set -uo pipefail
 
-CODE="$HOME/code"; WT="$HOME/worktrees"
+SESSIONS="$HOME/sessions"
 
 force=0; task=""
 for a in "$@"; do
@@ -15,16 +16,19 @@ for a in "$@"; do
 done
 [ -z "$task" ] && task="$(tmux display-message -p '#S' 2>/dev/null)"
 
-taskdir="$WT/$task"
+taskdir="$SESSIONS/$task"
 [ -d "$taskdir" ] || { echo "not a task session (no $taskdir)"; exit 1; }
+
+# The source repo of a worktree — its main working tree, however the dir is named.
+repo_root_of() { git -C "$1" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}'; }
 
 # Safety pass: block on anything that would lose work.
 blockers=""
 for wt in "$taskdir"/*/; do
   [ -e "$wt/.git" ] || continue
-  repo="$(basename "$wt")"
-  [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && blockers+="  $repo: uncommitted changes"$'\n'
-  [ -n "$(git -C "$wt" log --oneline HEAD --not --remotes 2>/dev/null)" ] && blockers+="  $repo: unpushed commits"$'\n'
+  name="$(basename "$wt")"
+  [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && blockers+="  $name: uncommitted changes"$'\n'
+  [ -n "$(git -C "$wt" log --oneline HEAD --not --remotes 2>/dev/null)" ] && blockers+="  $name: unpushed commits"$'\n'
 done
 if [ -n "$blockers" ] && [ "$force" -ne 1 ]; then
   printf "refusing to tear down '%s' — would lose work:\n%s" "$task" "$blockers"
@@ -36,13 +40,14 @@ fi
 rmflag=""; [ "$force" -eq 1 ] && rmflag="--force"
 for wt in "$taskdir"/*/; do
   [ -e "$wt/.git" ] || continue
-  repo="$(basename "$wt")"
+  root="$(repo_root_of "$wt")"
+  [ -n "$root" ] || continue
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  git -C "$CODE/$repo" worktree remove $rmflag "$wt" 2>/dev/null
-  [ -n "$branch" ] && [ "$branch" != HEAD ] && git -C "$CODE/$repo" branch -D "$branch" >/dev/null 2>&1
-  git -C "$CODE/$repo" worktree prune 2>/dev/null
+  git -C "$root" worktree remove $rmflag "$wt" 2>/dev/null
+  [ -n "$branch" ] && [ "$branch" != HEAD ] && git -C "$root" branch -D "$branch" >/dev/null 2>&1
+  git -C "$root" worktree prune 2>/dev/null
 done
 rm -rf "$taskdir"
 
 # End the session (tmux moves the client to another session, or exits if last).
-tmux kill-session -t "$task" 2>/dev/null
+tmux kill-session -t "$task" 2>/dev/null || true

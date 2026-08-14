@@ -4,21 +4,33 @@
 #   1. remove clean linked worktrees (git worktree remove, never --force, so a
 #      worktree with local or untracked changes is left untouched)
 #   2. prune stale worktree admin data (git worktree prune)
-#   3. delete local branches that are safe to drop:
-#        - fully pushed (tip already on a remote), or
-#        - already merged into the default branch, including squash-merges
-#          (where the branch's commits were rewritten and no longer match)
-#   4. log branches that survive (they hold genuinely unpushed work)
+#   3. (--fresh / --hard) switch to the default branch, if the tree is clean
+#   4. (--fresh) pull the default branch fast-forward-only
+#   5. delete local branches:
+#        - default: only those safe to drop (fully pushed, or already merged
+#          into the default branch incl. squash-merges)
+#        - --hard:  every other branch, force-deleted, pushed or not
+#   6. log branches that survive
 #
-#   tidy-repos            -> dry run over cwd, delete nothing
-#   tidy-repos <dir>      -> dry run over <dir>
-#   tidy-repos -x <dir>   -> execute the deletions
+# Nothing is changed without -x; on its own the script only previews.
+#   tidy-repos [dir]            -> preview over dir (default: cwd)
+#   tidy-repos -x [dir]         -> remove clean worktrees + safe branches
+#   tidy-repos -x --fresh [dir] -> also switch to default branch and pull
+#   tidy-repos -x --hard  [dir] -> also nuke every non-default branch
 set -euo pipefail
 
-dry=1
-[ "${1:-}" = "-x" ] && { dry=0; shift; }
-
-root="${1:-$PWD}"
+dry=1; fresh=0; hard=0; root=""
+for a in "$@"; do
+  case "$a" in
+    -x)      dry=0 ;;
+    --fresh) fresh=1 ;;
+    --hard)  hard=1 ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*)      echo "tidy-repos: unknown flag: $a" >&2; exit 1 ;;
+    *)       root="$a" ;;
+  esac
+done
+root="${root:-$PWD}"
 [ -d "$root" ] || { echo "tidy-repos: no such dir: $root" >&2; exit 1; }
 
 bold=$'\e[1m'; dim=$'\e[2m'; yellow=$'\e[33m'; green=$'\e[32m'; reset=$'\e[0m'
@@ -63,16 +75,66 @@ tidy_repo() {
 
   git -C "$repo" worktree prune
 
-  # Never delete: the default branch, or anything checked out in a worktree.
-  protected=" main  master "
+  # Default branch name (local short form).
   def="$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
-  [ -n "$def" ] && protected="$protected ${def#origin/} "
-  while read -r p; do
-    [ -n "$p" ] && protected="$protected $p "
-  done < <(git -C "$repo" worktree list --porcelain | sed -n 's#^branch refs/heads/##p')
+  defbranch="${def#origin/}"
+  if [ -z "$defbranch" ]; then
+    for c in main master; do
+      git -C "$repo" rev-parse --verify --quiet "refs/heads/$c" >/dev/null 2>&1 && { defbranch="$c"; break; }
+    done
+  fi
 
-  # The ref to test merges against: prefer the remote default branch (most up to
-  # date), fall back to a local main/master.
+  # The current branch of the main checkout (empty if detached).
+  curbranch="$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+
+  # --fresh / --hard both need us on the default branch: --fresh to pull it,
+  # --hard so the previously-checked-out branch becomes deletable.
+  switched_away=0
+  if { [ "$fresh" = 1 ] || [ "$hard" = 1 ]; } && [ -n "$defbranch" ] \
+     && [ -n "$curbranch" ] && [ "$curbranch" != "$defbranch" ]; then
+    if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+      echo "  ${yellow}not switching to $defbranch (working tree dirty)${reset}"
+    elif [ "$dry" = 1 ]; then
+      echo "  ${dim}would switch to${reset} $defbranch"
+      switched_away=1
+    elif git -C "$repo" switch "$defbranch" >/dev/null 2>&1; then
+      echo "  ${green}switched to${reset} $defbranch"
+      switched_away=1
+    else
+      echo "  ${yellow}could not switch to $defbranch${reset}"
+    fi
+  fi
+
+  # --fresh: fast-forward the default branch (only meaningful once we're on it).
+  if [ "$fresh" = 1 ] && [ -n "$defbranch" ]; then
+    if [ "$dry" = 1 ]; then
+      echo "  ${dim}would pull --ff-only${reset} $defbranch"
+    elif [ "$switched_away" = 1 ] || [ "$curbranch" = "$defbranch" ]; then
+      if git -C "$repo" pull --ff-only --quiet 2>/dev/null; then
+        echo "  ${green}pulled${reset} $defbranch"
+      else
+        echo "  ${yellow}pull skipped (not fast-forward or offline)${reset}"
+      fi
+    fi
+  fi
+
+  # Never delete: default branch, and any branch checked out in a *linked*
+  # worktree. The main checkout's current branch is protected too, unless we
+  # switched (or would switch) away from it.
+  protected=" main  master "
+  [ -n "$defbranch" ] && protected="$protected $defbranch "
+  [ "$switched_away" = 0 ] && [ -n "$curbranch" ] && protected="$protected $curbranch "
+  main_seen=0
+  while read -r key val; do
+    case "$key" in
+      worktree) : ;;
+      branch)
+        b="${val#refs/heads/}"
+        if [ "$main_seen" = 0 ]; then main_seen=1; else protected="$protected $b "; fi ;;
+    esac
+  done < <(git -C "$repo" worktree list --porcelain)
+
+  # Ref to test merges against: prefer the remote default branch, else local.
   mainref="$def"
   [ -n "$mainref" ] && ! git -C "$repo" rev-parse --verify --quiet "$mainref^{commit}" >/dev/null 2>&1 && mainref=""
   if [ -z "$mainref" ]; then
@@ -86,12 +148,16 @@ tidy_repo() {
     [ -z "$branch" ] && continue
     case "$protected" in *" $branch "*) continue ;; esac
 
-    tip="$(git -C "$repo" rev-parse "$branch")"
     reason=""
-    if git -C "$repo" branch -r --contains "$tip" 2>/dev/null | grep -q .; then
-      reason="pushed"
-    elif [ -n "$mainref" ] && squash_merged "$repo" "$branch" "$mainref"; then
-      reason="merged"
+    if [ "$hard" = 1 ]; then
+      reason="hard"
+    else
+      tip="$(git -C "$repo" rev-parse "$branch")"
+      if git -C "$repo" branch -r --contains "$tip" 2>/dev/null | grep -q .; then
+        reason="pushed"
+      elif [ -n "$mainref" ] && squash_merged "$repo" "$branch" "$mainref"; then
+        reason="merged"
+      fi
     fi
 
     if [ -n "$reason" ]; then

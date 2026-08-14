@@ -1,25 +1,17 @@
 #!/usr/bin/env bash
-# Start a task: a tmux session backed by fresh git worktree(s).
+# Start a task: a tmux session backed by a fresh ~/sessions/<task> workspace.
+# The dir gets an AGENTS.md telling the agent the working agreement — code lives
+# in ~/code, work happens on git worktrees created into the session dir. Worktree
+# management is the agent's job; this script just makes the space and opens tmux.
 #
-#   new-session                 -> fzf pick a repo or group, then type a label
-#   new-session <repo|group> [label]
-#   new-session <existing-dir>  -> legacy: just open a plain session there
-#
-# Task name is YYMMDD-<label>. Symmetric layout — one subdir per repo:
-#   ~/worktrees/<task>/<repo>        (single-repo sessions land inside the repo)
-# so a single-repo task grows into a group task by adding a sibling worktree
-# (see expand-session). Worktrees are disposable — push anything that matters.
+#   new-session                 -> type a label
+#   new-session <label>
+#   new-session <existing-dir>  -> legacy: just open a plain session in that dir
 set -euo pipefail
 
-CODE="$HOME/code"
-WT="$HOME/worktrees"
-declare -A REPO_GROUPS=(
-  [web]="website terraform-website"
-  [brightapply]="bright-apply terraform-bright-apply"
-  [talenttracker]="talent-tracker terraform-talent-tracker"
-)
+SESSIONS="$HOME/sessions"
 
-open() { # $1 = session, $2 = start dir
+open() { # $1 = session name, $2 = start dir
   tmux has-session -t "$1" 2>/dev/null || tmux new-session -ds "$1" -c "$2"
   if [ -z "${TMUX:-}" ]; then exec tmux attach -t "$1"; else exec tmux switch-client -t "$1"; fi
 }
@@ -29,38 +21,46 @@ if [ "${1:-}" ] && [ -d "$1" ]; then
   open "$(basename "$1" | tr . _)" "$1"
 fi
 
-# pick a project (repo or group)
-project="${1:-}"
-if [ -z "$project" ]; then
-  project=$( { printf 'group:%s\n' "${!REPO_GROUPS[@]}"
-               find "$CODE" -mindepth 1 -maxdepth 1 -type d -exec test -e '{}/.git' ';' -print \
-                 | sed 's#.*/#repo:#'; } | sort | fzf --tmux --prompt='new task > ' ) || exit 0
-fi
-[ -z "$project" ] && exit 0
-
-# resolve to a repo list
-name="${project#*:}"
-if [ -n "${REPO_GROUPS[$name]:-}" ]; then repos=(${REPO_GROUPS[$name]}); else repos=("$name"); fi
-
 # label (free text via fzf's query when not given). fzf exits non-zero when the
-# typed query matches nothing (which is normal here) — don't let set -e kill us.
-label="${2:-}"
+# typed query matches nothing (normal here) — don't let set -e kill us.
+label="${1:-}"
 if [ -z "$label" ]; then
-  label=$( </dev/null fzf --tmux --print-query --prompt="label for $name > " | head -1 ) || true
+  label=$( </dev/null fzf --tmux --print-query --prompt='new task > ' | head -1 ) || true
 fi
 label="${label// /-}"
 [ -z "$label" ] && exit 0
 
 task="$(date +%y%m%d)-$label"
-taskdir="$WT/$task"
+taskdir="$SESSIONS/$task"
 mkdir -p "$taskdir"
-# stdout must stay clean: new-session is called via fzf `become` inside
-# swap-session's $(...) capture, so any stdout becomes a bogus switch target.
-for r in "${repos[@]}"; do
-  [ -e "$taskdir/$r" ] && continue
-  git -C "$CODE/$r" worktree add "$taskdir/$r" -b "$label" 2>/dev/null \
-    || git -C "$CODE/$r" worktree add "$taskdir/$r" "$label"
-done 1>&2
 
-start="$taskdir"; [ "${#repos[@]}" -eq 1 ] && start="$taskdir/${repos[0]}"
-open "$task" "$start"
+# Working agreement for the agent. Written once so re-running is harmless.
+if [ ! -e "$taskdir/AGENTS.md" ]; then
+  cat > "$taskdir/AGENTS.md" <<'AGENTS'
+# This is a task session
+
+Your workspace is this directory. Do your work here.
+
+## Where the code is
+All repositories live under `~/code/<repo>`. Treat `~/code` as **read-only
+reference** — never edit, commit, or branch there directly.
+
+To change a repo, create a git **worktree** of it into this session dir:
+
+    git -C ~/code/<repo> worktree add "$PWD/<repo>" -b <branch>    # new branch
+    git -C ~/code/<repo> worktree add "$PWD/<repo>" <existing>     # existing branch
+
+Name the worktree dir after the repo; add one per repo if the task spans several.
+
+## Databases
+If a repo uses a local per-worktree DB, seed it after creating the worktree:
+run `wt-db load` inside it (`wt-db promote` snapshots the current DB as the seed).
+
+## Before you finish
+Commit and **push** your branch(es). Teardown refuses on uncommitted/unpushed
+work, and these working dirs are wiped on a box recreate (commits are safe in
+`~/code/<repo>/.git`; uncommitted working state is not).
+AGENTS
+fi
+
+open "$task" "$taskdir"
