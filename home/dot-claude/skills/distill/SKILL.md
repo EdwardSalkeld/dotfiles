@@ -20,7 +20,7 @@ Optional filter:
 
 ### 1. Find journal notes to process
 
-Scan `journal/tasks/` and `journal/adhoc/` in `/Users/edsalkeld/personal/work-brain/` for markdown files.
+Scan `journal/tasks/` and `journal/adhoc/` in `~/personal/work-brain/` for markdown files.
 
 Filter to notes where the frontmatter does **not** contain `distilled: true`. If an argument was passed, apply it as a date or path filter.
 
@@ -112,7 +112,7 @@ If you only extracted some learnings and want to revisit later, leave it as `dis
 
 Stage all changes in the work-brain repo (new learning notes + updated journal frontmatter). Commit following the `commit-style` skill. Push to origin.
 
-Use `git -C /Users/edsalkeld/personal/work-brain` if not already in that directory.
+Use `git -C ~/personal/work-brain` if not already in that directory.
 
 ## Important
 

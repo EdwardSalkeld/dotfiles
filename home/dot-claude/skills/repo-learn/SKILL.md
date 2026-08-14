@@ -85,7 +85,7 @@ Not every PR run will touch all areas. Only update areas where you learned somet
 
 ### 5. Update repo knowledge notes
 
-Notes live in `/Users/edsalkeld/personal/work-brain/repos/<owner>-<repo>/` (hyphens, not slashes in the repo name — e.g. `repos/brightnetwork-bright-apply/`).
+Notes live in `~/personal/work-brain/repos/<owner>-<repo>/` (hyphens, not slashes in the repo name — e.g. `repos/brightnetwork-bright-apply/`).
 
 Create the directory if it doesn't exist.
 
@@ -128,7 +128,7 @@ Stage all changes in the work-brain repo. Commit following the `commit-style` sk
 Update brightnetwork/bright-apply repo knowledge from recent PRs
 ```
 
-Push to origin. Use `git -C /Users/edsalkeld/personal/work-brain` if not already in that directory.
+Push to origin. Use `git -C ~/personal/work-brain` if not already in that directory.
 
 ### 7. Report
 

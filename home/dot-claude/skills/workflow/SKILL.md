@@ -50,7 +50,7 @@ Use `mcp__linear-server__*` tools (NOT `mcp__claude_ai_Linear__*` — those hang
    - The plan text
    - The development handover summary
    - The worktree path and branch name
-2. **If QA passes:** push the branch and create the PR by **delegating to the `gitops` agent**. You MUST NOT write a PR without using the `pr` skill. Read the `pr` skill file at `/Users/edsalkeld/.claude/skills/pr/skill.md` and include its FULL TEXT verbatim in your prompt to the gitops agent. The gitops agent must follow those rules exactly — do NOT invent your own PR title/body format, do NOT use `## Summary` / `## Test plan` headers, do NOT include testing notes. Then optionally watch CI checks with `gh pr checks --watch`. Capture the PR URL. Post a QA summary as a Linear comment. Done.
+2. **If QA passes:** push the branch and create the PR by **delegating to the `gitops` agent**. You MUST NOT write a PR without using the `pr` skill. Read the `pr` skill file at `~/.claude/skills/pr/skill.md` and include its FULL TEXT verbatim in your prompt to the gitops agent. The gitops agent must follow those rules exactly — do NOT invent your own PR title/body format, do NOT use `## Summary` / `## Test plan` headers, do NOT include testing notes. Then optionally watch CI checks with `gh pr checks --watch`. Capture the PR URL. Post a QA summary as a Linear comment. Done.
 3. **If QA fails:** post the issues as a Linear comment. Relay the issue list to the developer subagent for fixes. Re-run QA. Max 3 rounds — then escalate to the user.
 
 ### Completion
@@ -67,4 +67,4 @@ Report to the user:
 - If SSH to GitHub fails with `Permission denied (publickey)`, stop and ask the user to add the SSH key.
 - Use flat worktree directory names (dashes, no slashes).
 - **Worktrees apply to ALL repos involved in a change**, not just the primary repo. If a ticket spans multiple repos (e.g. application code + infrastructure), create a worktree in each. Never commit directly on a main checkout.
-- **You MUST NOT create a PR without using the `pr` skill.** Before delegating to the gitops agent, read `/Users/edsalkeld/.claude/skills/pr/skill.md` and include its full text in the gitops prompt. Never write your own PR format.
+- **You MUST NOT create a PR without using the `pr` skill.** Before delegating to the gitops agent, read `~/.claude/skills/pr/skill.md` and include its full text in the gitops prompt. Never write your own PR format.

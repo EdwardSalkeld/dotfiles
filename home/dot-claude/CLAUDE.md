@@ -26,12 +26,12 @@
 
 ## Work Brain — knowledge capture
 
-- A zettelkasten-style knowledge base lives at `/Users/edsalkeld/personal/work-brain/`.
+- A zettelkasten-style knowledge base lives at `~/personal/work-brain/`.
 - **You MUST proactively write work-brain notes. Do not wait to be asked.** This is as important as committing code.
 - **When working on a Linear ticket**: create or update `journal/tasks/<ticket-id>.md` at the start of the task. Record decisions, PR numbers, gotchas, and anything someone picking this up later would need. Update it as you go.
 - **When working without a ticket**: create `journal/adhoc/<YYYY-MM-DD-descriptive_name>.md` for anything worth remembering — debugging sessions, architectural decisions, tool patterns, non-obvious gotchas.
 - Read the `CLAUDE.md` in that repo for frontmatter format and guidelines.
-- You can write to work-brain from any project — use `git -C /Users/edsalkeld/personal/work-brain` for git operations and absolute paths for file writes.
+- You can write to work-brain from any project — use `git -C ~/personal/work-brain` for git operations and absolute paths for file writes.
 - Commit and push notes as you go. Use the commit-style skill. These are low-stakes commits — don't overthink them.
 - The `learning/` directory contains distilled notes; don't write there directly during normal work — a periodic skill handles that.
 

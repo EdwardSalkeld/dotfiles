@@ -20,11 +20,11 @@ Read daynotes and extract workstream context, decisions, and learnings into work
 
 **Timeframe:** Default to 7 days back from today. Parse relative timeframes ("2 weeks", "1 month") into a start date.
 
-**Find notes:** Glob for `daynotes/*.md` in `/Users/edsalkeld/personal/notes/`. Filter to files whose date prefix (`YYYYMMDD`) falls within the timeframe. **Exclude today's daynote** — it's always a work in progress. Read all matching notes.
+**Find notes:** Glob for `daynotes/*.md` in `~/personal/notes/`. Filter to files whose date prefix (`YYYYMMDD`) falls within the timeframe. **Exclude today's daynote** — it's always a work in progress. Read all matching notes.
 
 ### 2. Check what's already been captured
 
-Read the tracking file at `/Users/edsalkeld/personal/work-brain/journal/daynote-learn-log.md`. This file records which daynote dates have been processed and when. If it doesn't exist, create it.
+Read the tracking file at `~/personal/work-brain/journal/daynote-learn-log.md`. This file records which daynote dates have been processed and when. If it doesn't exist, create it.
 
 Skip dates that have already been processed **unless** the user explicitly re-requests them ("re-process", "again", etc.).
 
@@ -82,7 +82,7 @@ If daynotes reveal information about how a specific repo works, update `repos/<o
 
 ### 6. Update tracking log
 
-Append to `/Users/edsalkeld/personal/work-brain/journal/daynote-learn-log.md`:
+Append to `~/personal/work-brain/journal/daynote-learn-log.md`:
 
 ```markdown
 ## YYYY-MM-DD (processing date)
@@ -98,7 +98,7 @@ Notes created/updated:
 
 Stage all changes in the work-brain repo. Commit following the `commit-style` skill. Push to origin.
 
-Use `git -C /Users/edsalkeld/personal/work-brain` for git operations.
+Use `git -C ~/personal/work-brain` for git operations.
 
 ### 8. Report
 

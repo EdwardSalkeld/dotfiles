@@ -3,11 +3,10 @@
   "permissions": {
     "allow": [
       "Read(~/.claude/skills/**)",
-      "Read(//Users/edsalkeld/.claude/skills/**)",
       "Read(~/.claude/settings.json)",
       "Read(~/personal/work-brain/**)",
       "Edit(~/personal/work-brain/**)",
-      "Bash(git -C /Users/edsalkeld/personal/work-brain *)",
+      "Bash(git -C ~/personal/work-brain *)",
       "Bash(gh api *)",
       "Bash(gh repo view *)",
       "Bash(curl *)",
