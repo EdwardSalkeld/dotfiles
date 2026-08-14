@@ -61,7 +61,9 @@ Located in `home/dot-local/bin/`:
 
 | Script | Purpose |
 |--------|---------|
-| `swap-session` | Switch tmux sessions with fzf (searches ~/code, ~/develop, ~/personal) |
+| `new-session` | Start a task: make `~/sessions/YYMMDD-label` + an `AGENTS.md`, open tmux there |
+| `swap-session` | Switch/resume tasks (live tmux sessions + `~/sessions` dirs) with fzf |
+| `teardown-session` | Bin a task's worktrees + branches and end its tmux session |
 | `swap-window` | Switch tmux windows with fzf |
 | `copy` | Cross-platform clipboard utility |
 | `push-to-staging` | Force push to staging branch with confirmation |
