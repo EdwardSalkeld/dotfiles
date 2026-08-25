@@ -19,23 +19,28 @@
 # --fresh on its own ONLY freshens: no worktree removal, no branch pruning.
 # Combine with --hard to freshen and prune together.
 #
+# --status just reports each repo's current branch and last-commit date; it is
+# read-only and ignores the other flags.
+#
 # Nothing is changed without -x; on its own the script only previews.
 #   tidy-repos [dir]                  -> preview over dir (default: cwd)
+#   tidy-repos --status [dir]         -> just show each repo's branch + last commit
 #   tidy-repos -x [dir]               -> remove clean worktrees + safe branches
 #   tidy-repos -x --fresh [dir]       -> ONLY switch to default branch and pull
 #   tidy-repos -x --hard  [dir]       -> prune, nuking every non-default branch
 #   tidy-repos -x --fresh --hard [dir]-> freshen and hard-prune
 set -euo pipefail
 
-dry=1; fresh=0; hard=0; root=""
+dry=1; fresh=0; hard=0; status=0; root=""
 for a in "$@"; do
   case "$a" in
-    -x)      dry=0 ;;
-    --fresh) fresh=1 ;;
-    --hard)  hard=1 ;;
-    -h|--help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    -*)      echo "tidy-repos: unknown flag: $a" >&2; exit 1 ;;
-    *)       root="$a" ;;
+    -x)       dry=0 ;;
+    --fresh)  fresh=1 ;;
+    --hard)   hard=1 ;;
+    --status) status=1 ;;
+    -h|--help) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*)       echo "tidy-repos: unknown flag: $a" >&2; exit 1 ;;
+    *)        root="$a" ;;
   esac
 done
 root="${root:-$PWD}"
@@ -55,6 +60,15 @@ squash_merged() {
     -*) return 0 ;;
     *)  return 1 ;;
   esac
+}
+
+# Read-only one-liner: repo name, current branch, and HEAD commit date.
+show_status() {
+  repo="$1"
+  br="$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)')"
+  when="$(git -C "$repo" log -1 --format='%cd' --date=format:'%Y-%m-%d' 2>/dev/null || echo '-')"
+  rel="$(git -C "$repo" log -1 --format='%cr' 2>/dev/null || echo '')"
+  printf '%-32s %-11s %-16s %s\n' "${repo##*/}" "$when" "$rel" "$br"
 }
 
 tidy_repo() {
@@ -195,13 +209,17 @@ tidy_repo() {
   echo
 }
 
+# Pick the per-repo action; --status short-circuits the tidying.
+action=tidy_repo
+[ "$status" = 1 ] && action=show_status
+
 # A main clone has .git as a directory; a linked worktree has it as a file.
 if [ -d "$root/.git" ]; then
-  tidy_repo "$root"
+  "$action" "$root"
 else
   for repo in "$root"/*/; do
     repo="${repo%/}"
     [ -d "$repo/.git" ] || continue
-    tidy_repo "$repo"
+    "$action" "$repo"
   done
 fi
