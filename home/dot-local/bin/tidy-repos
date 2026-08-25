@@ -19,12 +19,12 @@
 # --fresh on its own ONLY freshens: no worktree removal, no branch pruning.
 # Combine with --hard to freshen and prune together.
 #
-# --status just reports each repo's current branch and last-commit date; it is
-# read-only and ignores the other flags.
+# --status just reports each repo's branch, last-commit date, and how it sits
+# vs upstream (from the last fetch); read-only, ignores the other flags.
 #
 # Nothing is changed without -x; on its own the script only previews.
 #   tidy-repos [dir]                  -> preview over dir (default: cwd)
-#   tidy-repos --status [dir]         -> just show each repo's branch + last commit
+#   tidy-repos --status [dir]         -> show branch, last commit, sync vs upstream
 #   tidy-repos -x [dir]               -> remove clean worktrees + safe branches
 #   tidy-repos -x --fresh [dir]       -> ONLY switch to default branch and pull
 #   tidy-repos -x --hard  [dir]       -> prune, nuking every non-default branch
@@ -62,13 +62,28 @@ squash_merged() {
   esac
 }
 
-# Read-only one-liner: repo name, current branch, and HEAD commit date.
+# Read-only one-liner: repo name, HEAD commit date, and how the current branch
+# sits vs its upstream. The sync state uses the last-fetched remote refs (this
+# does not fetch), so run a fetch, --fresh, or a plain tidy first for freshness.
 show_status() {
   repo="$1"
   br="$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)')"
   when="$(git -C "$repo" log -1 --format='%cd' --date=format:'%Y-%m-%d' 2>/dev/null || echo '-')"
   rel="$(git -C "$repo" log -1 --format='%cr' 2>/dev/null || echo '')"
-  printf '%-32s %-11s %-16s %s\n' "${repo##*/}" "$when" "$rel" "$br"
+
+  local sync col="$dim"
+  if up="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)"; then
+    read -r ahead behind < <(git -C "$repo" rev-list --left-right --count "HEAD...$up" 2>/dev/null || echo "0 0")
+    if [ "${ahead:-0}" = 0 ] && [ "${behind:-0}" = 0 ]; then sync="up to date"
+    elif [ "${ahead:-0}" != 0 ] && [ "${behind:-0}" != 0 ]; then sync="ahead $ahead, behind $behind"; col="$yellow"
+    elif [ "${behind:-0}" != 0 ]; then sync="behind $behind"; col="$yellow"
+    else sync="ahead $ahead"; col="$yellow"; fi
+  else
+    sync="no upstream"
+  fi
+
+  printf '%-32s %-11s %-22s %b%-18s%b %s\n' \
+    "${repo##*/}" "$when" "$rel" "$col" "$sync" "$reset" "$br"
 }
 
 tidy_repo() {
