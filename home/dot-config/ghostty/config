@@ -45,10 +45,10 @@
 #theme = Kanagawa Wave
 #theme = Monokai Pro Light Sun
 #theme = catppuccin-latte
-theme = light:Catppuccin Latte,dark:Catppuccin Frappe
+theme = light:Modus Operandi Tinted,dark:Modus Vivendi Tinted
 #font-family = Ubuntu Mono
 font-family = Monaspace Argon Regular
-font-size = 20
+font-size = 14
 
 # Allow OSC52 clipboard writes (so tmux yanks from the sbx box reach the clipboard)
 clipboard-write = allow

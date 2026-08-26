@@ -970,6 +970,8 @@ require('lazy').setup({
       -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
       require('catppuccin').setup {
         flavour = 'frappe',
+        -- custom highlights binned for now — using catppuccin defaults
+        --[[
         custom_highlights = function(colours)
           return {
             -- === Core UI ===
@@ -1033,6 +1035,7 @@ require('lazy').setup({
             ['@namespace'] = { link = 'Normal' },
           }
         end,
+        --]]
       }
       vim.cmd.colorscheme 'catppuccin'
       -- vim.cmd.colorscheme 'kanagawa-lotus'
