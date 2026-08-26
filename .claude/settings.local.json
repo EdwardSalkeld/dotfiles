@@ -109,7 +109,14 @@
       "Bash(echo \"current: $\\(git -C ~/code/github symbolic-ref --quiet --short HEAD\\)\")",
       "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --hard ~/code/github)",
       "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos ~/code/github)",
-      "Bash(~/personal/dotfiles/home/dot-local/bin/tidy-repos --hard ~/code)"
+      "Bash(~/personal/dotfiles/home/dot-local/bin/tidy-repos --hard ~/code)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --fresh ~/code/gaston)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos ~/code/gaston)",
+      "Bash(/Users/edsalkeld/personal/dotfiles/home/dot-local/bin/tidy-repos --fresh --hard ~/code/gaston)",
+      "Bash(git -C ~/personal/dotfiles status)",
+      "Bash(git -C ~/personal/dotfiles ls-files home/dot-local/bin/tidy-repos)",
+      "Bash(git -C ~/personal/dotfiles commit -F - -- home/dot-local/bin/tidy-repos)",
+      "Bash(git -C ~/personal/dotfiles log --oneline -1)"
     ],
     "deny": []
   }
