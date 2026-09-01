@@ -21,24 +21,27 @@
 #
 # --status just reports each repo's branch, last-commit date, and how it sits
 # vs upstream (from the last fetch); read-only, ignores the other flags.
+# --json is the same report as one JSON object, for tools that drive this script.
 #
 # Nothing is changed without -x; on its own the script only previews.
 #   tidy-repos [dir]                  -> preview over dir (default: cwd)
 #   tidy-repos --status [dir]         -> show branch, last commit, sync vs upstream
+#   tidy-repos --json [dir]           -> the same status as JSON
 #   tidy-repos -x [dir]               -> remove clean worktrees + safe branches
 #   tidy-repos -x --fresh [dir]       -> ONLY switch to default branch and pull
 #   tidy-repos -x --hard  [dir]       -> prune, nuking every non-default branch
 #   tidy-repos -x --fresh --hard [dir]-> freshen and hard-prune
 set -euo pipefail
 
-dry=1; fresh=0; hard=0; status=0; root=""
+dry=1; fresh=0; hard=0; status=0; json=0; root=""
 for a in "$@"; do
   case "$a" in
     -x)       dry=0 ;;
     --fresh)  fresh=1 ;;
     --hard)   hard=1 ;;
     --status) status=1 ;;
-    -h|--help) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --json)   json=1 ;;
+    -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*)       echo "tidy-repos: unknown flag: $a" >&2; exit 1 ;;
     *)        root="$a" ;;
   esac
@@ -84,6 +87,34 @@ show_status() {
 
   printf '%-32s %-11s %-22s %b%-18s%b %s\n' \
     "${repo##*/}" "$when" "$rel" "$col" "$sync" "$reset" "$br"
+}
+
+# The same facts as show_status, plus a dirty flag and worktree count, as one
+# JSON object per repo. Written for the tidy-ui frontend; keep the keys stable.
+json_esc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+
+json_first=1
+json_status() {
+  repo="$1"
+  br="$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null || echo '')"
+  when="$(git -C "$repo" log -1 --format='%cd' --date=format:'%Y-%m-%d' 2>/dev/null || echo '')"
+  rel="$(git -C "$repo" log -1 --format='%cr' 2>/dev/null || echo '')"
+  up="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo '')"
+  ahead=0; behind=0
+  [ -n "$up" ] && read -r ahead behind < <(git -C "$repo" rev-list --left-right --count "HEAD...$up" 2>/dev/null || echo "0 0")
+  dirty=false
+  [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ] && dirty=true
+  # worktree list always includes the main checkout, so linked ones are count-1.
+  worktrees="$(git -C "$repo" worktree list --porcelain 2>/dev/null | grep -c '^worktree ' || true)"
+  worktrees=$(( worktrees > 0 ? worktrees - 1 : 0 ))
+  branches="$(git -C "$repo" for-each-ref --format='x' refs/heads/ 2>/dev/null | grep -c . || true)"
+
+  [ "$json_first" = 1 ] || printf ',\n'
+  json_first=0
+  printf '{"name":"%s","path":"%s","branch":"%s","date":"%s","relative":"%s","upstream":"%s","ahead":%d,"behind":%d,"dirty":%s,"worktrees":%d,"branches":%d}' \
+    "$(json_esc "${repo##*/}")" "$(json_esc "$repo")" "$(json_esc "$br")" \
+    "$(json_esc "$when")" "$(json_esc "$rel")" "$(json_esc "$up")" \
+    "${ahead:-0}" "${behind:-0}" "$dirty" "$worktrees" "${branches:-0}"
 }
 
 tidy_repo() {
@@ -221,12 +252,26 @@ tidy_repo() {
       printf '%s' "$leftover" | while read -r b; do echo "    $b"; done
     fi
   fi
+
+  # Pack loose objects into the repo's pack. Reading thousands of loose object
+  # files is very slow over a network / virtiofs mount — each is a separate
+  # round-trip — so keeping repos packed keeps clones from them fast. git's own
+  # auto-gc only fires at 6700 loose objects, too high to help in practice.
+  if [ "$dry" = 1 ]; then
+    echo "  ${dim}would gc${reset}"
+  elif git -C "$repo" gc --quiet 2>/dev/null; then
+    echo "  ${green}packed${reset}"
+  fi
+
   echo
 }
 
-# Pick the per-repo action; --status short-circuits the tidying.
+# Pick the per-repo action; --status and --json short-circuit the tidying.
 action=tidy_repo
 [ "$status" = 1 ] && action=show_status
+[ "$json" = 1 ] && action=json_status
+
+[ "$json" = 1 ] && printf '{"root":"%s","repos":[\n' "$(json_esc "$root")"
 
 # A main clone has .git as a directory; a linked worktree has it as a file.
 if [ -d "$root/.git" ]; then
@@ -238,3 +283,5 @@ else
     "$action" "$repo"
   done
 fi
+
+[ "$json" = 1 ] && printf '\n]}\n'
