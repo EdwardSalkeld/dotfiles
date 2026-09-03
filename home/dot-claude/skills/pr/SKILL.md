@@ -48,3 +48,5 @@ _Description to follow._
 The author rewrites every PR description themselves, so a drafted one is wasted effort. Do not summarise the change, explain the why, list commits, call out blast radius, or reference related PRs in the body — none of it. Just the placeholder. Put all your effort into the **title** instead (it's the only part that ships as-is).
 
 If context genuinely needs to reach the author (e.g. "this depends on #123"), it goes in your report back to the caller, not in the PR body.
+
+**Never flag or caveat the placeholder in your report back.** Leaving the body as `_Description to follow._` is the expected, correct outcome of this skill, not a gap or something skipped — do not mention it, apologize for it, or offer to write a real one. Report just the PR URL and title.
