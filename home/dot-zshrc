@@ -133,3 +133,6 @@ source <(fzf --zsh)
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Disable the AWS CLI pager
+export AWS_PAGER=""
