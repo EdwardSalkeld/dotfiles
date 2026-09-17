@@ -1,0 +1,685 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["typesafe-sdk>=0.6.0"]
+# ///
+"""Tidy git repos, described in words rather than flags.
+
+  fresh pull main on all repos
+  fresh what would a tidy up do here
+  fresh how are my repos looking
+
+Each flag is one yes/no judgement over what you asked, so they all go out in a
+single call. Turning a flag on is gated and turning it off is not, with the
+gate rising with the damage a wrong yes does. Nothing destructive runs without
+a confirmation, and a request it cannot read falls back to a read-only report.
+
+Flags still work if you want them:
+  fresh [dir]                   -> preview over dir (default: cwd)
+  fresh --status [dir]          -> branch, last commit, sync vs upstream
+  fresh -x [dir]                -> remove clean worktrees + safe branches
+  fresh -x --fresh [dir]        -> ONLY switch to the default branch and pull
+  fresh -x --hard [dir]         -> prune, nuking every non-default branch
+  fresh -x --fresh --hard [dir] -> freshen and hard-prune
+  -n / --explain                -> work out the flags, print them, run nothing
+  --yes                         -> skip the confirmation prompt
+
+What the flags do:
+  Pruning (default, and with --hard):
+    1. remove clean linked worktrees (never --force, so a worktree with local
+       or untracked changes is left untouched)
+    2. prune stale worktree admin data
+    3. delete local branches: by default only those safe to drop (fully pushed,
+       or already merged into the default branch incl. squash-merges); with
+       --hard, every other branch, force-deleted, pushed or not
+  Freshening (--fresh / --hard):
+    - switch to the default branch, if the working tree is clean
+    - (--fresh only) pull the default branch fast-forward-only
+  --fresh on its own ONLY freshens. --status is read-only and ignores the rest.
+
+Needs TYPESAFE_API_KEY, read from the environment, then ~/.config/fresh/env,
+then ~/jev/.env.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+BOLD = "\033[1m"
+DIM = "\033[2m"
+YELLOW = "\033[33m"
+GREEN = "\033[32m"
+RESET = "\033[0m"
+
+ENV_FILES = [
+    Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "fresh" / "env",
+    Path.home() / "jev" / ".env",
+]
+
+
+def load_env() -> bool:
+    """Find TYPESAFE_API_KEY without the caller having to export it."""
+    if os.environ.get("TYPESAFE_API_KEY"):
+        return True
+    for path in ENV_FILES:
+        if not path.is_file():
+            continue
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+        if os.environ.get("TYPESAFE_API_KEY"):
+            return True
+    return False
+
+
+# ---------------------------------------------------------------- the tidying
+
+
+@dataclass
+class Options:
+    dry: bool = True
+    fresh: bool = False
+    hard: bool = False
+    status: bool = False
+    root: Path | None = None
+
+
+def git(repo: Path | str, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+
+
+def out(repo: Path | str, *args: str, default: str = "") -> str:
+    result = git(repo, *args)
+    return result.stdout.strip() if result.returncode == 0 else default
+
+
+def squash_merged(repo: Path, branch: str, mainref: str) -> bool:
+    """Is `branch` already merged into `mainref`, even via squash?
+
+    Rebuild the branch as a single commit on top of its merge-base, then let
+    git cherry check whether a patch-equivalent commit already exists upstream
+    (a leading '-' means yes).
+    """
+    base = git(repo, "merge-base", mainref, branch)
+    if base.returncode != 0:
+        return False
+    tree = git(repo, "rev-parse", f"{branch}^{{tree}}")
+    if tree.returncode != 0:
+        return False
+    synth = git(repo, "commit-tree", tree.stdout.strip(), "-p", base.stdout.strip(), "-m", "_")
+    if synth.returncode != 0:
+        return False
+    cherry = git(repo, "cherry", mainref, synth.stdout.strip())
+    return cherry.returncode == 0 and cherry.stdout.startswith("-")
+
+
+def worktrees(repo: Path) -> list[tuple[str, str]]:
+    """(key, value) pairs from `git worktree list --porcelain`, in order."""
+    pairs = []
+    for line in out(repo, "worktree", "list", "--porcelain").splitlines():
+        if line.strip():
+            key, _, value = line.partition(" ")
+            pairs.append((key, value))
+    return pairs
+
+
+def show_status(repo: Path, opts: Options) -> None:
+    """Read-only one-liner. The sync state uses the last-fetched remote refs,
+    so run a fetch, --fresh, or a plain tidy first for freshness.
+    """
+    br = out(repo, "symbolic-ref", "--quiet", "--short", "HEAD") or "(detached)"
+    when = out(repo, "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d") or "-"
+    rel = out(repo, "log", "-1", "--format=%cr")
+
+    col = DIM
+    upstream = git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    if upstream.returncode == 0:
+        counts = out(
+            repo, "rev-list", "--left-right", "--count",
+            f"HEAD...{upstream.stdout.strip()}", default="0 0",
+        ).split()
+        ahead, behind = (int(counts[0]), int(counts[1])) if len(counts) == 2 else (0, 0)
+        if ahead == 0 and behind == 0:
+            sync = "up to date"
+        elif ahead and behind:
+            sync, col = f"ahead {ahead}, behind {behind}", YELLOW
+        elif behind:
+            sync, col = f"behind {behind}", YELLOW
+        else:
+            sync, col = f"ahead {ahead}", YELLOW
+    else:
+        sync = "no upstream"
+
+    print(f"{repo.name:<32} {when:<11} {rel:<22} {col}{sync:<18}{RESET} {br}")
+
+
+def tidy_repo(repo: Path, opts: Options) -> None:
+    print(f"{BOLD}{repo.name}{RESET}")
+
+    # --fresh on its own only freshens; the pruning steps are skipped.
+    cleanup = not (opts.fresh and not opts.hard)
+
+    if git(repo, "fetch", "--quiet", "--prune").returncode != 0:
+        print(f"  {YELLOW}fetch failed (offline?){RESET}")
+
+    if cleanup:
+        # Never --force: git refuses to remove a worktree with modified or
+        # untracked files, so nothing unsaved is lost.
+        for key, value in worktrees(repo):
+            if key != "worktree":
+                continue
+            wt = Path(value)
+            if not (wt / ".git").is_file():  # linked worktrees only, never the main checkout
+                continue
+            if opts.dry:
+                if not out(wt, "status", "--porcelain"):
+                    print(f"  {DIM}would remove worktree{RESET} {wt.name}")
+                else:
+                    print(f"  {YELLOW}keep worktree (local changes){RESET} {wt.name}")
+            elif git(repo, "worktree", "remove", str(wt)).returncode == 0:
+                print(f"  {GREEN}removed worktree{RESET} {wt.name}")
+            else:
+                print(f"  {YELLOW}kept worktree (local changes){RESET} {wt.name}")
+
+        git(repo, "worktree", "prune")
+
+    default_ref = out(repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+    defbranch = default_ref.removeprefix("origin/")
+    if not defbranch:
+        for candidate in ("main", "master"):
+            if git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{candidate}").returncode == 0:
+                defbranch = candidate
+                break
+
+    # The current branch of the main checkout (empty if detached).
+    curbranch = out(repo, "symbolic-ref", "--quiet", "--short", "HEAD")
+
+    # --fresh / --hard both need us on the default branch: --fresh to pull it,
+    # --hard so the previously-checked-out branch becomes deletable.
+    switched_away = False
+    if (opts.fresh or opts.hard) and defbranch and curbranch and curbranch != defbranch:
+        if out(repo, "status", "--porcelain"):
+            print(f"  {YELLOW}not switching to {defbranch} (working tree dirty){RESET}")
+        elif opts.dry:
+            print(f"  {DIM}would switch to{RESET} {defbranch}")
+            switched_away = True
+        elif git(repo, "switch", defbranch).returncode == 0:
+            print(f"  {GREEN}switched to{RESET} {defbranch}")
+            switched_away = True
+        else:
+            print(f"  {YELLOW}could not switch to {defbranch}{RESET}")
+
+    if opts.fresh and defbranch:
+        if opts.dry:
+            print(f"  {DIM}would pull --ff-only{RESET} {defbranch}")
+        elif switched_away or curbranch == defbranch:
+            if git(repo, "pull", "--ff-only", "--quiet").returncode == 0:
+                print(f"  {GREEN}pulled{RESET} {defbranch}")
+            else:
+                print(f"  {YELLOW}pull skipped (not fast-forward or offline){RESET}")
+
+    if not cleanup:
+        print()
+        return
+
+    # Never delete: the default branch, and any branch checked out in a linked
+    # worktree. The main checkout's current branch is protected too, unless we
+    # switched (or would switch) away from it.
+    protected = {"main", "master"}
+    if defbranch:
+        protected.add(defbranch)
+    if not switched_away and curbranch:
+        protected.add(curbranch)
+    main_seen = False
+    for key, value in worktrees(repo):
+        if key != "branch":
+            continue
+        if not main_seen:
+            main_seen = True
+        else:
+            protected.add(value.removeprefix("refs/heads/"))
+
+    # Ref to test merges against: prefer the remote default branch, else local.
+    mainref = default_ref
+    if mainref and git(repo, "rev-parse", "--verify", "--quiet", f"{mainref}^{{commit}}").returncode != 0:
+        mainref = ""
+    if not mainref:
+        for candidate in ("origin/main", "origin/master", "main", "master"):
+            if git(repo, "rev-parse", "--verify", "--quiet", f"{candidate}^{{commit}}").returncode == 0:
+                mainref = candidate
+                break
+
+    leftover = []
+    for branch in out(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").splitlines():
+        if not branch or branch in protected:
+            continue
+
+        reason = ""
+        if opts.hard:
+            reason = "hard"
+        else:
+            tip = out(repo, "rev-parse", branch)
+            if out(repo, "branch", "-r", "--contains", tip):
+                reason = "pushed"
+            elif mainref and squash_merged(repo, branch, mainref):
+                reason = "merged"
+
+        if reason:
+            if opts.dry:
+                print(f"  {DIM}would delete{RESET} {branch} {DIM}({reason}){RESET}")
+            else:
+                git(repo, "branch", "-D", branch)
+                print(f"  {GREEN}deleted{RESET} {branch} {DIM}({reason}){RESET}")
+        else:
+            leftover.append(branch)
+
+    if leftover:
+        print(f"  {YELLOW}kept (unpushed):{RESET}")
+        for branch in leftover:
+            print(f"    {branch}")
+    print()
+
+
+def run(opts: Options) -> int:
+    root = opts.root
+    assert root is not None
+    if not root.is_dir():
+        print(f"fresh: no such dir: {root}", file=sys.stderr)
+        return 1
+
+    action = show_status if opts.status else tidy_repo
+
+    # A main clone has .git as a directory; a linked worktree has it as a file.
+    if (root / ".git").is_dir():
+        action(root, opts)
+    else:
+        # Sort as the shell's `*/` glob does, with the trailing slash counted:
+        # it puts "x-y/" before "x/", because '-' sorts below '/'.
+        for repo in sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: f"{p.name}/"):
+            if (repo / ".git").is_dir():
+                action(repo, opts)
+    return 0
+
+
+# ------------------------------------------------------------------ the words
+
+
+# How sure we need to be before a flag is allowed to turn ON. Turning one off is
+# the safe direction, so only the "yes" side is gated, and the gates rise with
+# how much damage a wrong yes does.
+THRESHOLDS = {"status": 0.5, "fresh": 0.5, "prune": 0.5, "hard": 0.85, "execute": 0.8}
+
+
+def flag_questions() -> dict[str, Any]:
+    from typesafe_sdk import Noul
+
+    return {
+        "status": Noul(
+            instructions=(
+                "Is the user only asking to be told how the repositories currently "
+                "stand, with nothing altered?"
+            ),
+            criteria={
+                "true": "They want to be shown the current state and nothing else: "
+                "which branch each repo is on, how stale it is, whether it is ahead "
+                "or behind. A question about how things are.",
+                "false": "They want something done to the repositories, even if only "
+                "previewed. An instruction rather than a question.",
+            },
+        ),
+        "fresh": Noul(
+            instructions=(
+                "Does the user want each repository put back onto its main branch "
+                "and brought up to date with the remote?"
+            ),
+            criteria={
+                "true": "Asking in so many words to pull, fetch, update, sync, get "
+                "the latest, or get back onto main. Bringing the code itself up to "
+                "date has to be part of what was asked for.",
+                "false": "Saying nothing about updating or about which branch to end "
+                "up on. General housekeeping words — tidy, clean up, sort out, clear "
+                "away, a good going over — are about disposing of finished local "
+                "branches and worktrees, not about fetching new work from the "
+                "remote, so on their own they belong here.",
+            },
+        ),
+        "prune": Noul(
+            instructions=(
+                "Does the user want finished local branches cleared away — the ones "
+                "whose work is already pushed or already merged, so nothing is lost?"
+            ),
+            criteria={
+                "true": "Asking to tidy, clean up, clear out old or dead or merged "
+                "branches, or to get rid of leftovers.",
+                "false": "Saying nothing about removing branches.",
+            },
+        ),
+        "hard": Noul(
+            instructions=(
+                "Does the user want local branches deleted even when the work on "
+                "them exists nowhere else, accepting that the work is gone for good?"
+            ),
+            criteria={
+                "true": "They are unmistakably asking for everything to go, and the "
+                "loss is the point: wipe it all, nuke every branch, burn it down, "
+                "start from a clean slate, I do not care what is on them.",
+                "false": "Asking for ordinary tidying, or for finished, merged or "
+                "pushed branches to go. Anything that only implies removing work "
+                "which is safely stored elsewhere. Also anything merely emphatic, "
+                "like doing it thoroughly or properly, which is not the same as "
+                "asking to lose unpushed work.",
+            },
+        ),
+        "execute": Noul(
+            instructions=(
+                "Is the user telling us to carry the work out now, rather than "
+                "asking to be shown what it would do first?"
+            ),
+            criteria={
+                "true": "A plain instruction to go and do it, or an explicit 'for "
+                "real', 'actually', 'go ahead', 'just do it'.",
+                "false": "Asking what would happen, for a preview, a dry run, or for "
+                "the plan before committing to it. When in doubt this is the safer "
+                "reading.",
+            },
+        ),
+    }
+
+
+@dataclass
+class Judgment:
+    name: str
+    probability: float
+    decided: bool
+
+    @property
+    def gated(self) -> bool:
+        """True when the model leaned yes but not surely enough to act on it."""
+        return self.probability > 0.5 and not self.decided
+
+
+@dataclass
+class Resolution:
+    request: str
+    root: Path
+    judgments: dict[str, Judgment]
+    passes: list[list[str]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    root_confidence: float | None = None
+
+    @property
+    def executes(self) -> bool:
+        return any("-x" in p for p in self.passes)
+
+    def command_lines(self) -> list[str]:
+        return [" ".join(["fresh", *p, str(self.root)]) for p in self.passes]
+
+    def options(self) -> list[Options]:
+        return [
+            Options(
+                dry="-x" not in p,
+                fresh="--fresh" in p,
+                hard="--hard" in p,
+                status="--status" in p,
+                root=self.root,
+            )
+            for p in self.passes
+        ]
+
+
+def candidate_roots(cwd: Path) -> list[Path]:
+    """Directories the request could plausibly be about, found in code."""
+    roots = [cwd]
+    for candidate in (Path.home() / "code", cwd.parent):
+        if candidate.is_dir() and candidate not in roots:
+            roots.append(candidate)
+    return roots
+
+
+def build_questions(roots: list[Path]) -> dict[str, Any]:
+    from typesafe_sdk import Choice
+
+    questions = flag_questions()
+    if len(roots) > 1:
+        questions["root"] = Choice(
+            instructions=(
+                "Which directory is the user talking about? The working directory "
+                "is the one they are standing in; the others are places several "
+                "repositories live side by side."
+            ),
+            criteria={
+                str(root): (
+                    "the directory they are currently in"
+                    if i == 0
+                    else f"a directory holding several repositories, called {root.name}"
+                )
+                for i, root in enumerate(roots)
+            },
+        )
+    return questions
+
+
+def plan(
+    request: str,
+    root: Path,
+    judgments: dict[str, Judgment],
+    root_confidence: float | None = None,
+) -> Resolution:
+    """Turn the judgements into flag combinations. Pure, so it is testable."""
+    resolution = Resolution(
+        request=request, root=root, judgments=judgments, root_confidence=root_confidence
+    )
+    on = {name: j.decided for name, j in judgments.items()}
+
+    for name, j in judgments.items():
+        if j.gated:
+            resolution.notes.append(
+                f"leaned towards {name} at {j.probability:.2f}, under the "
+                f"{THRESHOLDS[name]:.2f} needed to act on it — left off"
+            )
+
+    if on["status"]:
+        resolution.passes = [["--status"]]
+        if any(on[k] for k in ("fresh", "prune", "hard")):
+            resolution.notes.append(
+                "read as a question about current state, so nothing will be changed"
+            )
+        return resolution
+
+    execute = ["-x"] if on["execute"] else []
+
+    if on["fresh"] and on["prune"] and not on["hard"]:
+        # Not one flag combination: --fresh on its own skips the pruning, and
+        # --fresh --hard would delete unpushed branches too. Two passes do
+        # exactly what was asked without over-reaching.
+        resolution.passes = [[*execute, "--fresh"], [*execute]]
+        resolution.notes.append(
+            "freshening and safe pruning together is not one flag combination, "
+            "so this runs as two passes"
+        )
+    elif on["fresh"] or on["prune"] or on["hard"]:
+        flags = execute[:]
+        if on["fresh"]:
+            flags.append("--fresh")
+        if on["hard"]:
+            flags.append("--hard")
+        resolution.passes = [flags]
+    else:
+        resolution.passes = [["--status"]]
+        resolution.notes.append(
+            "could not tell what was being asked for, so falling back to a "
+            "read-only report"
+        )
+
+    return resolution
+
+
+def resolve(request: str, client: Any, cwd: Path, root: Path | None = None) -> Resolution:
+    from typesafe_sdk import ChoiceAnswer, NoulAnswer
+
+    roots = candidate_roots(cwd)
+    questions = build_questions(roots)
+    if root is not None:
+        questions.pop("root", None)  # an explicit directory settles it
+
+    response = client.system_one(
+        state={
+            "request": request,
+            "working_directory": str(cwd),
+            "what_this_tool_does": (
+                "Housekeeping across git repositories: reporting on them, putting "
+                "them back on their main branch and pulling, removing finished "
+                "worktrees, and deleting local branches."
+            ),
+        },
+        questions=questions,
+    )
+
+    judgments = {}
+    for name in THRESHOLDS:
+        answer = response.answers[name]
+        assert isinstance(answer, NoulAnswer)
+        judgments[name] = Judgment(
+            name=name, probability=answer.noul, decided=answer.noul >= THRESHOLDS[name]
+        )
+
+    chosen, confidence = root or cwd, None
+    if "root" in questions:
+        answer = response.answers["root"]
+        assert isinstance(answer, ChoiceAnswer)
+        chosen, confidence = Path(answer.choice), answer.confidence
+
+    return plan(request, chosen, judgments, confidence)
+
+
+# -------------------------------------------------------------------- the CLI
+
+
+@dataclass
+class Invocation:
+    opts: Options
+    request: str = ""
+    explicit_root: bool = False
+    assume_yes: bool = False
+    explain: bool = False
+
+
+def parse_args(argv: list[str]) -> Invocation:
+    opts = Options()
+    inv = Invocation(opts=opts)
+    words: list[str] = []
+    for a in argv:
+        if a == "-x":
+            opts.dry = False
+        elif a == "--fresh":
+            opts.fresh = True
+        elif a == "--hard":
+            opts.hard = True
+        elif a == "--status":
+            opts.status = True
+        elif a == "--yes":
+            inv.assume_yes = True
+        elif a in ("-n", "--explain"):
+            inv.explain = True
+        elif a in ("-h", "--help"):
+            print(__doc__.strip())
+            raise SystemExit(0)
+        elif a.startswith("-"):
+            print(f"fresh: unknown flag: {a}", file=sys.stderr)
+            raise SystemExit(1)
+        else:
+            words.append(a)
+
+    root = ""
+    if len(words) == 1:
+        # A lone argument is a directory, so a mistyped path still errors
+        # instead of being read as a one-word request.
+        root = words[0]
+    elif words:
+        # In a sentence, only a path-shaped word can be the directory: "main"
+        # is a branch name, "~/code" or "./x" is somewhere to look. Last wins.
+        for i in range(len(words) - 1, -1, -1):
+            w = words[i]
+            if ("/" in w or w in (".", "..")) and Path(w).expanduser().is_dir():
+                root = w
+                words = words[:i] + words[i + 1 :]
+                break
+        inv.request = " ".join(words).strip()
+
+    inv.explicit_root = bool(root)
+    opts.root = Path(root).expanduser() if root else Path.cwd()
+    return inv
+
+
+def smart(inv: Invocation) -> int:
+    if not load_env():
+        print(
+            "fresh: no TYPESAFE_API_KEY. Put it in the environment, "
+            f"{ENV_FILES[0]}, or {ENV_FILES[1]}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    from typesafe_sdk import TypeSafeClient
+
+    try:
+        resolution = resolve(
+            inv.request,
+            TypeSafeClient(timeout=30.0),
+            cwd=Path.cwd(),
+            root=inv.opts.root if inv.explicit_root else None,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface whatever the SDK raises
+        print(f"fresh: could not work out what you meant: {exc}", file=sys.stderr)
+        return 1
+
+    print(f'{DIM}heard:{RESET} "{resolution.request}"')
+    for name, j in resolution.judgments.items():
+        mark = f"{GREEN}yes{RESET}" if j.decided else f"{DIM}no {RESET}"
+        print(f"  {mark} {name:<9}{DIM}{j.probability:.2f}{RESET}")
+    if resolution.root_confidence is not None:
+        print(f"  {DIM}dir       {resolution.root} ({resolution.root_confidence:.2f}){RESET}")
+    for note in resolution.notes:
+        print(f"  {YELLOW}note{RESET} {note}")
+    print()
+    for line in resolution.command_lines():
+        print(f"  {BOLD}{line}{RESET}")
+    print()
+
+    if inv.explain:
+        return 0
+
+    if resolution.executes and not inv.assume_yes:
+        if not sys.stdin.isatty():
+            print(
+                "fresh: refusing to make changes without a confirmation; re-run "
+                "with --yes, or run the command above yourself.",
+                file=sys.stderr,
+            )
+            return 1
+        if input("run this? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("nothing done")
+            return 0
+        print()
+
+    for options in resolution.options():
+        if (rc := run(options)) != 0:
+            return rc
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    inv = parse_args(sys.argv[1:] if argv is None else argv)
+    return smart(inv) if inv.request else run(inv.opts)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
