@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Point the box's config at its dotfiles clone, so edits made in the box can be
+# committed and pushed from there.
+set -euo pipefail
+
+dots="$HOME/personal/dotfiles"
+link() {
+	mkdir -p "$(dirname "$HOME/$2")"
+	# ln -sfn can't replace a real directory, e.g. one an older gvm up copied in
+	if [ ! -L "$HOME/$2" ]; then rm -rf "${HOME:?}/$2"; fi
+	ln -sfn "$dots/$1" "$HOME/$2"
+}
+
+link gvm/gitconfig .gitconfig
+link gvm/claude/settings.json .claude/settings.json
+link gvm/claude/hooks .claude/hooks
+# Per skill, not the whole dir: gvm copies Gaston's skills into ~/.claude/skills
+find "$HOME/.claude/skills" -maxdepth 1 -xtype l -delete 2>/dev/null || true
+for skill in "$dots"/gvm/claude/skills/*/; do
+	skill="$(basename "$skill")"
+	link "gvm/claude/skills/$skill" ".claude/skills/$skill"
+done
+
+link home/dot-tmux.conf .tmux.conf
+link home/dot-vimrc .vimrc
+link home/dot-config/nvim .config/nvim
+for bin in browse-claude-inbox browse-claude-panes swap-window; do
+	link "home/dot-local/bin/$bin" ".local/bin/$bin"
+done
+
+# gvm rewrites its block in ~/.claude/CLAUDE.md on every apply, so a link would put
+# that block into the clone; import ours instead.
+claude_md="$HOME/.claude/CLAUDE.md"
+import="@$dots/gvm/claude/CLAUDE.md"
+touch "$claude_md"
+if ! grep -qxF "$import" "$claude_md"; then
+	{ printf '%s\n\n' "$import"; cat "$claude_md"; } >"$claude_md.new"
+	mv "$claude_md.new" "$claude_md"
+fi

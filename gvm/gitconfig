@@ -13,3 +13,6 @@
 [credential "https://github.com/EdwardSalkeld/work-brain.git"]
 	helper =
 	helper = "!f() { test \"$1\" = get && printf 'username=x-access-token\\npassword=%s\\n' \"$GH_TOKEN_PERSONAL\"; }; f"
+[credential "https://github.com/EdwardSalkeld/dotfiles.git"]
+	helper =
+	helper = "!f() { test \"$1\" = get && printf 'username=x-access-token\\npassword=%s\\n' \"$GH_TOKEN_PERSONAL\"; }; f"

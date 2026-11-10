@@ -27,6 +27,14 @@
 - On GitHub auth failures (git or gh: permission denied, bad credentials, missing scope), stop. Don't try to work around them with other remotes, protocols, tokens or accounts; report the exact error to the user.
 - When creating git worktrees, always use flat directory names — no slashes. Flatten branch names with dashes, e.g. `../repo_worktree_feature_branch-name` not `../repo_worktree_feature/branch-name`.
 
+## This box's own config
+
+- This box is disposable and rebuilt from scratch about weekly. Anything not pushed (repo clones, branches, Claude's memory) is lost.
+- Your instructions, settings, hooks and skills live in `~/personal/dotfiles/gvm/claude/`, linked into `~/.claude`. Change them there, then commit and push; nothing outside the box needs touching.
+- `~/.claude/CLAUDE.md` belongs to gvm, which rewrites it on every `gvm up`; it imports this file. Don't edit it.
+- `gvm/provision.d/*` runs on every `gvm up` and on a rebuild. Put setup the box should always have there (a tool, a clone), and keep each script safe to run again.
+- Files under `home/` are shared with Ed's Mac. Put box-only changes under `gvm/`.
+
 ## Work Brain — knowledge capture
 
 - A zettelkasten-style knowledge base lives at `~/personal/work-brain/`.

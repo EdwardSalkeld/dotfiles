@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# The only provisioning the host ships: the box clones its own dotfiles and runs
+# their provision.d, so it can change and push its own setup.
+set -euo pipefail
+
+dir="$HOME/personal/dotfiles"
+if [ -d "$dir/.git" ]; then
+	# Local edits or divergence shouldn't block gvm up; leave them for a person.
+	git -C "$dir" pull --ff-only -q || echo "dotfiles: pull failed, left as is" >&2
+else
+	mkdir -p "$(dirname "$dir")"
+	git clone -q https://github.com/EdwardSalkeld/dotfiles.git "$dir"
+fi
+
+for script in "$dir"/gvm/provision.d/*; do
+	if [ -x "$script" ]; then "$script"; fi
+done
