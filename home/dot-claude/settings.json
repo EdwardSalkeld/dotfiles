@@ -132,5 +132,18 @@
   "alwaysThinkingEnabled": true,
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
+  "sshConfigs": [
+    {
+      "id": "gvm",
+      "name": "gvm (Gaston)",
+      "sshHost": "edsalkeld@127.0.0.1",
+      "sshPort": 2226
+    },
+    {
+      "id": "cuckoo-gvm",
+      "name": "cuckoo-gvm",
+      "sshHost": "cuckoo-gvm"
+    }
+  ],
   "theme": "dark"
 }
