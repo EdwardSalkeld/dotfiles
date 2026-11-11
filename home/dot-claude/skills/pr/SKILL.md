@@ -17,8 +17,14 @@ Create a draft PR for the current branch against main.
 4. Push the branch if needed, then create the PR:
 
 ```
-gh pr create --draft --title "<title>" --body "<description>"
+gh pr create --draft --title "<title>" --body "<description>" --assignee sergent-longtarin
 ```
+
+5. **Always assign the PR to `sergent-longtarin`** (Longtarin, the automated
+   reviewer) so it gets a quick review. An assigned PR is reviewed on every
+   push, so if more commits are still to come, leave out `--assignee` and run
+   `gh pr edit <number> --add-assignee sergent-longtarin` once the last one is
+   pushed.
 
 Return the PR URL when done.
 
