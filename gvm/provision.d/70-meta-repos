@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Runs on every gvm apply: rebuilds the local meta repos that let T3 give one
+# session its own worktree of several repos. See gvm/workspaces/setup-worktree.
+set -euo pipefail
+
+templates="$HOME/personal/dotfiles/gvm/workspaces"
+for template in "$templates"/*/; do
+	name="$(basename "$template")"
+	dir="$HOME/workspace/$name"
+	if [ ! -d "$dir/.git" ]; then
+		mkdir -p "$dir"
+		git -C "$dir" init -q -b main
+	fi
+	cp "$template"/{AGENTS.md,CLAUDE.md,repos,.gitignore} "$dir/"
+	git -C "$dir" add AGENTS.md CLAUDE.md repos .gitignore
+	if ! git -C "$dir" rev-parse -q --verify HEAD >/dev/null || ! git -C "$dir" diff --cached --quiet; then
+		git -C "$dir" commit -q -m "Sync workspace files from dotfiles"
+	fi
+	while read -r repo; do
+		if [ -n "$repo" ] && [ ! -d "$HOME/workspace/$repo/.git" ]; then
+			git clone -q "https://github.com/brightnetwork/$repo.git" "$HOME/workspace/$repo"
+		fi
+	done <"$dir/repos"
+done
+# T3's project list and scripts live in ~/.t3 and are lost on a rebuild. `t3 project
+# add` can't set the worktree setup script, so ask Claude in T3 to re-register these.

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# T3 runs this when it makes a worktree of a meta repo. It gives the new worktree
+# its own worktree of every repo named in ./repos, on the meta worktree's branch.
+set -euo pipefail
+
+meta="${T3CODE_WORKTREE_PATH:-$PWD}"
+branch="$(git -C "$meta" branch --show-current)"
+src="$HOME/workspace"
+
+while read -r repo; do
+	[ -n "$repo" ] || continue
+	[ -d "$src/$repo/.git" ] || git clone -q "https://github.com/brightnetwork/$repo.git" "$src/$repo"
+	# Deleted meta worktrees leave their inner worktrees registered; drop those.
+	git -C "$src/$repo" worktree prune
+	if [ -e "$meta/$repo" ]; then
+		echo "$repo: already there"
+		continue
+	fi
+	git -C "$src/$repo" fetch -q origin
+	default="$(git -C "$src/$repo" symbolic-ref --short refs/remotes/origin/HEAD)"
+	if git -C "$src/$repo" show-ref -q --verify "refs/heads/$branch"; then
+		git -C "$src/$repo" worktree add -q "$meta/$repo" "$branch"
+	else
+		git -C "$src/$repo" worktree add -q --no-track -b "$branch" "$meta/$repo" "$default"
+	fi
+	echo "$repo: $branch from $default"
+done <"$meta/repos"
