@@ -23,6 +23,7 @@
 - **Before writing any code**, check you are on an appropriate branch. If you need a new branch, create it from main (or the correct base) first. Never make changes on an unrelated branch.
 - Always follow the `commit-style` skill when creating git commits.
 - Always use the `pr` skill when creating pull requests.
+- **Address review comments on your own PRs without being asked.** After opening a PR or pushing to one, watch it (`watch_pull_request` in T3). When review comments arrive (Longtarin's or a person's), follow the `receiving-code-review` skill: verify each one, fix the valid ones with a test where one fits, push, and reply on each thread with the fix commit. Push back in the thread on any you think are wrong. Then tell me what changed. Ask me first only when a comment needs a product or design decision.
 - **Never rewrite shared history.** Once a commit has been pushed, add new commits rather than amending it. Amending or rewording local, unpushed commits is fine. Preserving individual commit history is preferred over a clean single commit. Force push should only be used for rebasing.
 - On GitHub auth failures (git or gh: permission denied, bad credentials, missing scope), stop. Don't try to work around them with other remotes, protocols, tokens or accounts; report the exact error to the user.
 - When creating git worktrees, always use flat directory names — no slashes. Flatten branch names with dashes, e.g. `../repo_worktree_feature_branch-name` not `../repo_worktree_feature/branch-name`.

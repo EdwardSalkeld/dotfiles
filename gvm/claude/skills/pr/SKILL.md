@@ -26,6 +26,9 @@ gh pr create --draft --title "<title>" --body "<description>" --assignee sergent
    `gh pr edit <number> --add-assignee sergent-longtarin` once the last one is
    pushed.
 
+6. Watch the PR for review comments and address them when they arrive, without
+   waiting to be asked (see "Address review comments" in CLAUDE.md).
+
 Return the PR URL when done.
 
 ## Title
