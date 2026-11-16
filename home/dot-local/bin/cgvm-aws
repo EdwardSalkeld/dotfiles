@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Refresh the Gaston AWS credentials in a remote gvm box.
+# The box's bn-fantasio-base profile reads ~/.aws/gaston-user.json via credential_process,
+# so this rewrites that file; SSO login stays on this Mac.
+set -euo pipefail
+
+host="${1:-cuckoo-gvm}"
+profile=gaston-user
+
+if ! creds="$(aws configure export-credentials --profile "$profile" --format process 2>/dev/null)"; then
+	aws sso login --profile "$profile"
+	creds="$(aws configure export-credentials --profile "$profile" --format process)"
+fi
+
+printf '%s\n' "$creds" | ssh "$host" 'umask 077; cat >~/.aws/gaston-user.json'
+ssh "$host" 'aws sts get-caller-identity --profile bn-fantasio-base --query Arn --output text'
