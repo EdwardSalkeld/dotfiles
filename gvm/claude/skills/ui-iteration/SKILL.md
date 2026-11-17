@@ -1,15 +1,22 @@
 ---
 name: ui-iteration
-description: Iteratively improve an existing UI with a design agent, parallel implementers and independent scored reviews, looping until every score reaches a target. Use when asked to improve, redesign or iterate on a UI/page/app, including "make it better", "review and fix the UI" or "iterate until it scores well".
+description: Review an existing UI against a scoped rubric, then, once the user has set the goal, design, build and re-review until every score reaches their target. Use when asked to review, improve, redesign or iterate on a UI/page/app, including "do an initial review with this scope", "make it better" or "iterate until it scores well".
 ---
 
 # UI iteration loop
 
-A fresh reviewer scores the current UI against a fixed rubric. That reviewer then designs the improvement, implementers build it, a fresh reviewer with the identical prompt scores the result, and a fixer acts on the review. This repeats until every score reaches the target or the round limit is hit. One reviewer prompt and one rubric run from baseline to the last round, so every score can be compared with every other. The output is better UI plus before and after screenshots.
+This runs in two phases, with the user deciding in between:
 
-## 1. Fix scope, target and rubric from the request, and only from the request
+1. **Review** (sections 1–3). Given a scope, a fresh reviewer scores the current UI against a fixed rubric and lists issues. Then **stop** and report.
+2. **Improve** (sections 4–8). The user says what to aim for: target, focus and round limit. The reviewer designs the improvement, implementers build it, and a fresh reviewer using the identical prompt scores the result. A fixer acts on that review, and the loop repeats until the target is met or the round limit is hit.
 
-Scope, target and rubric are decided before any agent runs, and none of them change during the run.
+The usual way to use it is "do an initial review with this scope", read the results, then "now aim for X". Run straight through without the pause only when the first request already sets the goal, for example "iterate until everything's an 8".
+
+One reviewer prompt and one rubric run from the baseline to the last round, so every score can be compared with every other. The output is a better UI plus before and after screenshots.
+
+## 1. Fix scope and rubric from the request, and only from the request
+
+Scope and rubric are decided before any agent runs. The target is set later, in section 4, once the user has seen the review.
 
 ### Scope
 
@@ -32,16 +39,6 @@ Rules:
 - Write the agreed scope into every agent prompt as a hard boundary, e.g. "Scope: Visual + Usability. Do not add endpoints, data or actions."
 - Reviewers will suggest work outside scope; good reviewers always do. The fixer must **not** implement it. Report it to the user as "out of scope, needs your call", and implement it only after they say yes. In round 2 of the first run, a reviewer marked down the lack of write actions. That was a real gap, but it only went ahead once the user approved it.
 
-### Target and stopping rule
-
-Take these from the request as well:
-
-- **Target:** e.g. "8 out of 10" means every dimension at least 8. A target on the total or the average is weaker, because one strong area can hide a weak one; apply it only if that's what the user said.
-- **Round limit:** default 5.
-- **Pause points:** e.g. "stop after the first review".
-
-If no target is given, ask together with any scope question. If there's nothing else to ask, use "every dimension ≥ 8, no high-severity issues" and say so up front.
-
 ### Rubric
 
 Build the rubric yourself from the scope: 6–10 dimensions, each scored 1–10 with a line saying what an 8 looks like. Choose dimensions only from the tiers in scope:
@@ -53,7 +50,7 @@ Build the rubric yourself from the scope: 6–10 dimensions, each scored 1–10 
 | Features (read) | operator usefulness / feature completeness, plus one for the app's key view (e.g. live session fidelity) |
 | Features (write) | actionability: can the operator fix the common problems from the UI? |
 
-Dimensions from tiers outside scope are left out. Scoring a Visual job on feature completeness would push the loop into building features nobody asked for. Write the rubric to a file and show it to the user with the scope and target before the baseline review.
+Dimensions from tiers outside scope are left out. Scoring a Visual job on feature completeness would push the loop into building features nobody asked for. Write the rubric to a file. Before the review, tell the user the scope and the rubric's dimensions in a couple of lines. Don't wait for approval unless something was ambiguous.
 
 ## 2. Baseline
 
@@ -65,16 +62,39 @@ Dimensions from tiers outside scope are left out. Scoring a Visual job on featur
 4. Take the **before** set now, before any code changes. Note which fixture it used: if the after set uses richer data, say so when presenting the comparison.
 5. If several agents will run the app at once, give each one isolated ports and state, e.g. a `stack.sh restart <base-port>` helper. Watch for build outputs written into a shared directory (an embedded `dist/`, for example). Parallel agents should use the dev server against a running backend rather than each running a build.
 
-## 3. Baseline review (round 0)
+## 3. Baseline review (round 0), then stop
 
-Run the reviewer from section 6, with the exact prompt every later round will use, against the before state. Its scores are the baseline. Because the same prompt and rubric score every round, any difference between rounds comes from the UI and not from a different judge or measure.
+Run the reviewer from section 7, with the exact prompt every later round will use, against the before state. Its scores are the baseline. Because the same prompt and rubric score every round, any difference between rounds comes from the UI and not from a different judge or measure.
 
-## 4. Design (the baseline reviewer)
+Save the full review (scores, issues and summary) to a file next to the rubric. A later session can then pick it up.
 
-Continue the baseline reviewer with SendMessage rather than starting a new designer. It has already used the app, measured it and scored it against the rubric, so its design starts from the same evidence. Send it:
+Report to the user:
+
+- the scores per dimension, with one line of justification each
+- the high issues, and the mediums in short
+- out-of-scope observations, listed separately as possible scope changes
+- the before screenshots folder
+
+Then stop. Don't design or change code until the user sets the goal.
+
+## 4. Agree the goal
+
+Take these from the user's reply. Ask only for what they leave unclear.
+
+- **Target:** e.g. "8 out of 10" means every dimension at least 8. A target on the total or the average is weaker, because one strong area can hide a weak one; apply it only if that's what the user said. Per-dimension targets are fine, e.g. "density and mobile to 8, leave the rest".
+- **Focus:** the dimensions or issues to work on, and anything to leave alone.
+- **Round limit:** default 5.
+- **Pause points:** e.g. "stop after the first review", "one more round".
+- **Scope changes:** narrowing the scope is fine; drop the dimensions it no longer covers. Widening it adds dimensions, so build the new rubric and re-run the baseline review with it before designing. Otherwise the baseline and the later rounds measure different things.
+
+If the user says only "go", use "every in-scope dimension ≥ 8, no high-severity issues", and say so.
+
+## 5. Design (the baseline reviewer)
+
+Continue the baseline reviewer with SendMessage rather than starting a new designer. It has already used the app, measured it and scored it against the rubric, so its design starts from the same evidence. If it isn't reachable (for example, in a new session), start a fresh `model: fable` agent and give it the saved review file. Send it:
 
 - the agreed scope, stated as a boundary
-- the user's goals in their words
+- the agreed goal: target, focus and anything to leave alone, in the user's words
 - the repo path, and how to re-shoot
 
 Ask it to write a spec file covering:
@@ -84,13 +104,13 @@ Ask it to write a spec file covering:
 3. A design system: fonts bundled locally, type scale, spacing, colour tokens for light and dark with contrast checked, status-to-colour map, icon rules, table style, density targets.
 4. Layouts per page, with ASCII wireframes.
 5. Usability rules: scrolling model, keyboard, URL state, loading/empty/error/stale states.
-6. An ordered implementation plan, with the files each step touches, aimed at moving every dimension to the target.
+6. An ordered implementation plan, with the files each step touches, aimed at the agreed target and focus.
 
 It doesn't write a rubric, because the rubric is already fixed. If it ends early while its own sub-agents are still running, SendMessage it to finish and write the file.
 
 The designer later reviewing its own work would be biased. That doesn't arise here, because every later round uses a fresh reviewer.
 
-## 5. Implement (workflow)
+## 6. Implement (workflow)
 
 When the user has opted into workflows (ultracode or an explicit ask), run implementation as a Workflow. Otherwise use sequential Agent calls in the same shape:
 
@@ -112,7 +132,7 @@ Every agent prompt states:
 - the check commands to run (typecheck, tests, formatter, plus backend tests and linters when it touches the backend)
 - an instruction to look at its own screenshots before finishing
 
-## 6. Review and fix loop
+## 7. Review and fix loop
 
 **Reviewer.** Use a fresh `model: fable` agent every round, built from one prompt template that is also used for the baseline in section 3. Only the screenshot folder changes between rounds. Give it:
 
@@ -132,7 +152,7 @@ Don't give it the spec, your conclusions or the earlier reviews. Use a structure
 
 It then rebuilds, re-shoots to `round-N/`, leaves the app running for the next reviewer and commits.
 
-**Stopping.** Stop when the target from section 1 is met and no high in-scope issues remain, or at the round limit. Honour pause points and later requests ("one more round") exactly. If the only thing holding a score down is out of scope, stop and ask the user rather than looping.
+**Stopping.** Stop when the target from section 4 is met and no high in-scope issues remain, or at the round limit. Honour pause points and later requests ("one more round") exactly. If the only thing holding a score down is out of scope, stop and ask the user rather than looping.
 
 To change a running workflow:
 
@@ -142,7 +162,7 @@ To change a running workflow:
 
 Completed agents replay from the cache. To add instructions for later rounds only, put them behind a condition such as `${round >= 2 ? '…' : ''}` so earlier prompts are byte-identical and still hit the cache.
 
-## 7. Report
+## 8. Report
 
 After each pause or the end:
 
