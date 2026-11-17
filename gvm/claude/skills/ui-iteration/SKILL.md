@@ -5,9 +5,13 @@ description: Iteratively improve an existing UI with a design agent, parallel im
 
 # UI iteration loop
 
-A designer proposes, implementers build, a reviewer who has never seen the work scores it, and a fixer acts on the review. This repeats until every score reaches the target or the round limit is hit. The output is better UI plus before and after screenshots.
+A fresh reviewer scores the current UI against a fixed rubric. That reviewer then designs the improvement, implementers build it, a fresh reviewer with the identical prompt scores the result, and a fixer acts on the review. This repeats until every score reaches the target or the round limit is hit. One reviewer prompt and one rubric run from baseline to the last round, so every score can be compared with every other. The output is better UI plus before and after screenshots.
 
-## 1. Fix the scope from the request, and only from the request
+## 1. Fix scope, target and rubric from the request, and only from the request
+
+Scope, target and rubric are decided before any agent runs, and none of them change during the run.
+
+### Scope
 
 Scope decides everything downstream: what the designer may propose, what the rubric measures, what the implementers may touch, and which review notes the fixer may act on. Take it from what the user actually asked for. Never widen it because an agent thinks something would help.
 
@@ -28,6 +32,29 @@ Rules:
 - Write the agreed scope into every agent prompt as a hard boundary, e.g. "Scope: Visual + Usability. Do not add endpoints, data or actions."
 - Reviewers will suggest work outside scope; good reviewers always do. The fixer must **not** implement it. Report it to the user as "out of scope, needs your call", and implement it only after they say yes. In round 2 of the first run, a reviewer marked down the lack of write actions. That was a real gap, but it only went ahead once the user approved it.
 
+### Target and stopping rule
+
+Take these from the request as well:
+
+- **Target:** e.g. "8 out of 10" means every dimension at least 8. A target on the total or the average is weaker, because one strong area can hide a weak one; apply it only if that's what the user said.
+- **Round limit:** default 5.
+- **Pause points:** e.g. "stop after the first review".
+
+If no target is given, ask together with any scope question. If there's nothing else to ask, use "every dimension ≥ 8, no high-severity issues" and say so up front.
+
+### Rubric
+
+Build the rubric yourself from the scope: 6–10 dimensions, each scored 1–10 with a line saying what an 8 looks like. Choose dimensions only from the tiers in scope:
+
+| Tier | Candidate dimensions |
+|---|---|
+| Visual | hierarchy & typography, colour & contrast (light and dark), visual consistency, accessibility |
+| Usability | information density, navigation & usability (scrolling, keyboard, URL state), responsiveness/mobile, states & feedback |
+| Features (read) | operator usefulness / feature completeness, plus one for the app's key view (e.g. live session fidelity) |
+| Features (write) | actionability: can the operator fix the common problems from the UI? |
+
+Dimensions from tiers outside scope are left out. Scoring a Visual job on feature completeness would push the loop into building features nobody asked for. Write the rubric to a file and show it to the user with the scope and target before the baseline review.
+
 ## 2. Baseline
 
 1. Check out a working branch from the target (e.g. the PR branch). Don't commit to the PR branch itself.
@@ -38,28 +65,32 @@ Rules:
 4. Take the **before** set now, before any code changes. Note which fixture it used: if the after set uses richer data, say so when presenting the comparison.
 5. If several agents will run the app at once, give each one isolated ports and state, e.g. a `stack.sh restart <base-port>` helper. Watch for build outputs written into a shared directory (an embedded `dist/`, for example). Parallel agents should use the dev server against a running backend rather than each running a build.
 
-## 3. Design (Fable agent)
+## 3. Baseline review (round 0)
 
-Spawn one `model: fable` agent with:
+Run the reviewer from section 5, with the exact prompt every later round will use, against the before state. Its scores are the baseline. Because the same prompt and rubric score every round, any difference between rounds comes from the UI and not from a different judge or measure.
+
+## 4. Design (the baseline reviewer)
+
+Continue the baseline reviewer with SendMessage rather than starting a new designer. It has already used the app, measured it and scored it against the rubric, so its design starts from the same evidence. Send it:
 
 - the agreed scope, stated as a boundary
 - the user's goals in their words
-- the repo, the running URL, the before screenshots and how to re-shoot
+- the repo path, and how to re-shoot
 
 Ask it to write a spec file covering:
 
-1. A critique, per page, ranked by severity and measured where possible (row heights, contrast ratios, overflow widths).
+1. A critique, per page, ranked by severity, starting from its own review issues and measured where possible (row heights, contrast ratios, overflow widths).
 2. Features, only if they are in scope. List each with its data source and a cost class: (a) frontend only, (b) a new proxy route to an existing endpoint, (c) a new backend endpoint plus its size.
 3. A design system: fonts bundled locally, type scale, spacing, colour tokens for light and dark with contrast checked, status-to-colour map, icon rules, table style, density targets.
 4. Layouts per page, with ASCII wireframes.
 5. Usability rules: scrolling model, keyboard, URL state, loading/empty/error/stale states.
-6. An ordered implementation plan, with the files each step touches.
-7. A scoring rubric of 6–10 dimensions scored 1–10, saying what an 8 looks like for each. Dimensions must match the scope: don't score feature completeness when the scope is Visual.
-8. A score of the current UI against that rubric.
+6. An ordered implementation plan, with the files each step touches, aimed at moving every dimension to the target.
 
-If it ends early while its own sub-agents are still running, SendMessage it to finish and write the file.
+It doesn't write a rubric, because the rubric is already fixed. If it ends early while its own sub-agents are still running, SendMessage it to finish and write the file.
 
-## 4. Implement (workflow)
+The designer later reviewing its own work would be biased. That doesn't arise here, because every later round uses a fresh reviewer.
+
+## 5. Implement (workflow)
 
 When the user has opted into workflows (ultracode or an explicit ask), run implementation as a Workflow. Otherwise use sequential Agent calls in the same shape:
 
@@ -81,17 +112,17 @@ Every agent prompt states:
 - the check commands to run (typecheck, tests, formatter, plus backend tests and linters when it touches the backend)
 - an instruction to look at its own screenshots before finishing
 
-## 5. Review and fix loop
+## 6. Review and fix loop
 
-**Reviewer.** Use a fresh `model: fable` agent every round so earlier rounds don't anchor it. Give it:
+**Reviewer.** Use a fresh `model: fable` agent every round, built from one prompt template that is also used for the baseline in section 3. Only the screenshot folder changes between rounds. Give it:
 
 - the user's brief and the scope
-- the rubric dimensions and what an 8 looks like
+- the fixed rubric file
 - the screenshot folder and the live URL, and a Playwright path for it to interact with the app: keyboard, palette, filters, details, live views, dark mode, phone width
 - an instruction to measure rather than guess (contrast, row heights, nested scroll containers, overflow)
 - no repo edits, scratch work only
 
-Don't give it the spec, your conclusions or the earlier reviews. Use a structured schema: `scores[{dimension, score, justification}]`, `issues[{severity, page, problem, suggestion}]`, `summary`. It may add one dimension. When it does, flag it to the user: totals are then not comparable between rounds, so compare the shared dimensions.
+Don't give it the spec, your conclusions or the earlier reviews. Use a structured schema: `scores[{dimension, score, justification}]`, `issues[{severity, page, problem, suggestion}]`, `summary`. It scores exactly the rubric's dimensions and may not add any. Anything else it thinks matters goes into `issues`, where it gets sorted into in scope or out of scope like any other issue. In the first run, reviewers who were allowed an extra dimension picked a different one in each round, so the totals couldn't be compared between rounds.
 
 **Fixer.** One agent per round, owning all files. Give it:
 
@@ -101,7 +132,7 @@ Don't give it the spec, your conclusions or the earlier reviews. Use a structure
 
 It then rebuilds, re-shoots to `round-N/`, leaves the app running for the next reviewer and commits.
 
-**Stopping.** Stop when every score is at least 8 (or the user's target) and no high issues remain, or at the round limit (default 5). If the user asks to pause at a point ("stop after the first review", "one more round"), honour it exactly.
+**Stopping.** Stop when the target from section 1 is met and no high in-scope issues remain, or at the round limit. Honour pause points and later requests ("one more round") exactly. If the only thing holding a score down is out of scope, stop and ask the user rather than looping.
 
 To change a running workflow:
 
@@ -111,11 +142,11 @@ To change a running workflow:
 
 Completed agents replay from the cache. To add instructions for later rounds only, put them behind a condition such as `${round >= 2 ? '…' : ''}` so earlier prompts are byte-identical and still hit the cache.
 
-## 6. Report
+## 7. Report
 
 After each pause or the end:
 
-- A table of scores per dimension: baseline, then each round.
+- A table of scores per dimension, from the baseline (round 0) through each round, against the target.
 - The reviewer's high issues, and a short list of the mediums.
 - What the fixer changed, and anything it pushed back on.
 - Out-of-scope suggestions, as a decision for the user.
