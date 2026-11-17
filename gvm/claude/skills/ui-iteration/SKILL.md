@@ -37,7 +37,7 @@ Rules:
 - Features only come into scope when the user asks for them ("what more can we show", "add functionality"). Read features do not imply write features: each tier needs its own mandate.
 - If the request is ambiguous between tiers, ask once before starting with AskUserQuestion, giving the tiers as options. Don't guess upward.
 - Write the agreed scope into every agent prompt as a hard boundary, e.g. "Scope: Visual + Usability. Do not add endpoints, data or actions."
-- Reviewers will suggest work outside scope; good reviewers always do. The fixer must **not** implement it. Report it to the user as "out of scope, needs your call", and implement it only after they say yes. In round 2 of the first run, a reviewer marked down the lack of write actions. That was a real gap, but it only went ahead once the user approved it.
+- Reviewers will suggest work outside scope; good reviewers always do. The fixer must **not** implement it. Report it to the user as "out of scope, needs your call", and implement it only after they say yes. Approval has to name the out-of-scope item itself. "Go" or "one more round" after you've listed such items is not approval. In the first run, "one more round" was taken as a yes to write actions the user didn't want, and they had to be taken back out.
 
 ### Rubric
 
