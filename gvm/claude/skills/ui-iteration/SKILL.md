@@ -67,7 +67,7 @@ Dimensions from tiers outside scope are left out. Scoring a Visual job on featur
 
 ## 3. Baseline review (round 0)
 
-Run the reviewer from section 5, with the exact prompt every later round will use, against the before state. Its scores are the baseline. Because the same prompt and rubric score every round, any difference between rounds comes from the UI and not from a different judge or measure.
+Run the reviewer from section 6, with the exact prompt every later round will use, against the before state. Its scores are the baseline. Because the same prompt and rubric score every round, any difference between rounds comes from the UI and not from a different judge or measure.
 
 ## 4. Design (the baseline reviewer)
 
