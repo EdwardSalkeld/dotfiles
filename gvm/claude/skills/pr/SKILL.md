@@ -20,11 +20,13 @@ Create a draft PR for the current branch against main.
 gh pr create --draft --title "<title>" --body "<description>" --assignee sergent-longtarin
 ```
 
-5. **Always assign the PR to `sergent-longtarin`** (Longtarin, the automated
-   reviewer) so it gets a quick review. An assigned PR is reviewed on every
-   push, so if more commits are still to come, leave out `--assignee` and run
+5. **On `brightnetwork` repos, always assign the PR to `sergent-longtarin`**
+   (Longtarin, Bright Network's automated reviewer) so it gets a quick review.
+   An assigned PR is reviewed on every push, so if more commits are still to
+   come, leave out `--assignee` and run
    `gh pr edit <number> --add-assignee sergent-longtarin` once the last one is
-   pushed.
+   pushed. On any other owner (e.g. Ed's personal `EdwardSalkeld` repos),
+   leave out `--assignee`: Longtarin doesn't review there.
 
 6. Watch the PR for review comments and address them when they arrive, without
    waiting to be asked (see "Address review comments" in CLAUDE.md).
