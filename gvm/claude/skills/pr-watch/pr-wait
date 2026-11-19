@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Block until a pull request has activity an agent should act on, print it, exit.
+# Run it as a background command; re-run after acting. A per-PR cursor means
+# events that land while the agent is busy are printed on the next run.
+set -uo pipefail
+
+usage() {
+	echo "usage: pr-wait <owner/repo#N | PR URL> [--settle SECONDS] [--max-minutes M] [--reset]" >&2
+	exit 2
+}
+
+ref="" settle=20 max_minutes=110 reset=0
+while (($#)); do
+	case $1 in
+	--settle) settle=$2; shift 2 ;;
+	--max-minutes) max_minutes=$2; shift 2 ;;
+	--reset) reset=1; shift ;;
+	-h | --help) usage ;;
+	*) [[ -z $ref ]] || usage; ref=$1; shift ;;
+	esac
+done
+[[ -n $ref ]] || usage
+
+if [[ $ref =~ github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]] || [[ $ref =~ ^([^/#]+)/([^/#]+)#([0-9]+)$ ]]; then
+	owner=${BASH_REMATCH[1]} repo=${BASH_REMATCH[2]} number=${BASH_REMATCH[3]}
+else
+	usage
+fi
+pr="$owner/$repo#$number"
+
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/pr-wait
+mkdir -p "$state_dir"
+cursor_file="$state_dir/${owner}_${repo}_${number}"
+((reset)) && rm -f "$cursor_file"
+
+me_file="$state_dir/.login"
+[[ -s $me_file ]] || gh api user --jq .login >"$me_file" 2>/dev/null
+me=$(cat "$me_file" 2>/dev/null)
+
+if [[ ! -s $cursor_file ]]; then
+	mouette "$pr" --once -n 1 2>&1 >/dev/null | sed -n 's/^next: //p' >"$cursor_file"
+fi
+if ! mouette "$pr" --once -n 1 >/dev/null 2>&1; then
+	echo "pr-wait: can't reach the mouette feed; check $pr with gh yourself"
+	exit 1
+fi
+cursor=$(cat "$cursor_file" 2>/dev/null)
+
+# Own reviews and review replies are the agent answering threads, so they never
+# wake it. Own top-level comments are kept: that is how Ed asks for things.
+filter='
+def snippet: (. // "") | gsub("<!--[^>]*-->"; "") | gsub("\\s+"; " ") | ltrimstr(" ") | .[0:200];
+.event as $e | ($e.sender.login // "?") as $who | .kind as $k |
+if   $k == "github.pull_request.closed" then
+	"PR \(if $e.pull_request.merged then "merged" else "closed" end) by \($who). Stop watching."
+elif $k == "github.pull_request.dequeued" then
+	"removed from merge queue: \($e.reason // "unknown reason")"
+elif $k | startswith("github.check_run.completed.") then
+	($k | ltrimstr("github.check_run.completed.")) as $c |
+	if ["failure", "timed_out", "action_required", "startup_failure"] | index($c)
+	then "check \($c): \($e.check_run.name) \($e.check_run.html_url // "")" else empty end
+elif $who == $me then
+	if $k == "github.issue_comment.created" then "comment by \($who) (you): \($e.comment.body | snippet) \($e.comment.html_url)" else empty end
+elif $k == "github.pull_request_review.submitted" then
+	"review \($e.review.state) by \($who): \($e.review.body | snippet) \($e.review.html_url)"
+elif $k == "github.pull_request_review_comment.created" then
+	"inline comment by \($who) on \($e.comment.path): \($e.comment.body | snippet) \($e.comment.html_url)"
+elif $k == "github.issue_comment.created" then
+	if $who == "linear[bot]" then empty
+	elif ($who | startswith("depot-")) and ($e.comment.body | test("^\\s*✅")) then empty
+	else "comment by \($who): \($e.comment.body | snippet) \($e.comment.html_url)" end
+else empty end'
+
+stream_pid=""
+cleanup() { [[ -n $stream_pid ]] && kill "$stream_pid" 2>/dev/null; }
+trap cleanup EXIT
+
+exec 3< <(exec mouette "$pr" --json ${cursor:+--after "$cursor"} 2>/dev/null)
+stream_pid=$!
+
+found=0
+deadline=$((SECONDS + max_minutes * 60))
+while :; do
+	if ((found)); then
+		wait_for=$settle
+	else
+		wait_for=$((deadline - SECONDS))
+		if ((wait_for <= 0)); then
+			echo "no activity on $pr in ${max_minutes}m; run pr-wait again to keep watching"
+			exit 0
+		fi
+	fi
+	if IFS= read -r -t "$wait_for" -u 3 line; then
+		id=$(jq -r '.id // empty' <<<"$line")
+		[[ -n $id ]] && echo "$id" >"$cursor_file"
+		msg=$(jq -r --arg me "$me" "$filter" <<<"$line" 2>/dev/null)
+		if [[ -n $msg ]]; then
+			((found)) || echo "$pr:"
+			echo "- $msg"
+			found=1
+			[[ $msg == "PR merged"* || $msg == "PR closed"* ]] && { rm -f "$cursor_file"; exit 0; }
+		fi
+	elif (($? > 128)); then
+		((found)) && exit 0
+	else
+		echo "pr-wait: the mouette stream for $pr ended unexpectedly; check the PR with gh and run pr-wait again"
+		exit 1
+	fi
+done
