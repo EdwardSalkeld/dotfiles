@@ -25,7 +25,7 @@ Get the base branch and head SHA from `gh pr view <N> -R <owner/repo> --json bas
 
 ## 2. Check CI
 
-If CI passed on the head SHA, don't run tests, linters or type checkers: they pass. `gh pr checks` can fail on the fine-grained PAT, so try `gh api repos/<owner>/<repo>/commits/<sha>/check-runs --jq '.check_runs[] | [.name,.conclusion] | @tsv'`. If CI failed, or its state can't be read, say so in the report, and the reviewers may run targeted tests in a scratch venv.
+If CI passed on the head SHA, don't run tests, linters or type checkers: they pass. `gh pr checks` and the check-runs API return 403 on the fine-grained PAT; use `gh run list -R <owner>/<repo> --commit <sha> --json name,status,conclusion`. If CI failed, or its state can't be read, say so in the report, and the reviewers may run targeted tests in a scratch venv.
 
 ## 3. Scout inline
 
