@@ -25,7 +25,7 @@ Get the base branch and head SHA from `gh pr view <N> -R <owner/repo> --json bas
 
 ## 2. Check CI
 
-If CI passed on the head SHA, don't run tests, linters or type checkers: they pass. `gh pr checks` and the check-runs API return 403 on the fine-grained PAT; use `gh run list -R <owner>/<repo> --commit <sha> --json name,status,conclusion`. If CI failed, or its state can't be read, say so in the report, and the reviewers may run targeted tests in a scratch venv.
+If CI passed on the head SHA, don't run tests, linters or type checkers: they pass. `gh pr checks` and the check-runs API return 403 on the fine-grained PAT; use `gh run list -R <owner>/<repo> --commit <sha> --json name,status,conclusion`. If CI failed, or its state can't be read, the reviewers may run targeted tests in a scratch venv. Ed can see CI on the PR, so never report its state, neither in progress messages nor in the report.
 
 ## 3. Scout inline
 
@@ -63,7 +63,7 @@ While it runs, tell the user briefly what is happening and end the turn.
 
 Read the result (the journal file if the summary is truncated). Write:
 
-- **Verdict up front**: blocking or not, and what you ran or relied on (CI passed, or the tests you ran).
+- **Verdict up front**: blocking or not.
 - **What changed**: the restructure in a few bullets, then a numbered list of **live behaviour changes**, each with file:line.
 - **Findings**: confirmed and plausible ones, most severe first, each with a concrete consequence. Drop the refuted ones, but name any notable claim that was refuted so the user knows it was checked.
 - **Description & docs**: one line if they broadly agree, else the substantive disagreements.
