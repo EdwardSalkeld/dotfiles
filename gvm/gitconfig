@@ -17,3 +17,11 @@
 [credential "https://personal@github.com"]
 	helper =
 	helper = "!f() { test \"$1\" = get && printf 'username=personal\\npassword=%s\\n' \"$GH_TOKEN_PERSONAL\"; }; f"
+# brokensbone is Ed's other GitHub account, so it needs its own token, matched the same way.
+[url "https://brokensbone@github.com/brokensbone/"]
+	insteadOf = https://github.com/brokensbone/
+	insteadOf = git@github.com:brokensbone/
+	insteadOf = ssh://git@github.com/brokensbone/
+[credential "https://brokensbone@github.com"]
+	helper =
+	helper = "!f() { test \"$1\" = get && printf 'username=brokensbone\\npassword=%s\\n' \"$GH_TOKEN_BROKENSBONE\"; }; f"
