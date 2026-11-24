@@ -25,17 +25,6 @@
             "statusMessage": "Checking base branch is current..."
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "input=$(cat); printf '%s' \"$input\" | jq -r '.tool_input.command' | grep -qE -- 'git[^;&|]*[[:space:]]push([[:space:]]|$)' || exit 0; printf '%s' \"$input\" | ~/.claude/hooks/commit-style-guard.py",
-            "timeout": 120,
-            "statusMessage": "Checking commit messages before push..."
-          }
-        ]
       }
     ],
     "SessionStart": [

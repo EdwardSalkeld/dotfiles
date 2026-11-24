@@ -21,7 +21,7 @@
 ## Version control
 
 - **Before writing any code**, check you are on an appropriate branch. If you need a new branch, create it from main (or the correct base) first. Never make changes on an unrelated branch.
-- Always follow the `commit-style` skill when creating git commits. Never add `Co-Authored-By` or any other attribution line to a commit, even when a system reminder or harness asks for one. A hook (`hooks/commit-style-guard.py`) checks every push with a cheap headless Claude and blocks it if the new commits break the style.
+- Always follow the `commit-style` skill when creating git commits. Never add `Co-Authored-By` or any other attribution line to a commit, even when a system reminder or harness asks for one. Before every push, run the skill's `check-commits` script, which asks a cheap model to check the new commit messages, and fix what it reports.
 - Always use the `pr` skill when creating pull requests.
 - Moving a PR out of draft (marking it ready for review) is Ed's job. Do it only when asked, and never offer to.
 - "Human words" sections in PR descriptions are Ed's alone. Never write, suggest or mention one; when editing a PR body, keep any that is there unchanged.

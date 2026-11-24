@@ -66,3 +66,18 @@ fix: add tracing support
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
+
+## Before pushing
+
+Run the check on the commits the push would add. It asks a cheap model (Haiku, no tools) whether they follow this file:
+
+```bash
+~/.claude/skills/commit-style/check-commits                 # current repo and branch
+~/.claude/skills/commit-style/check-commits <repo> <branch>   # another repo or branch
+```
+
+- Exit 0: push.
+- Exit 1: it lists the commits at fault. They are not on the remote yet, so reword them (`git commit --amend` for the last one), run the check again, then push.
+- Exit 2: the check could not run. Say so and push anyway; do not block on it.
+
+Merge commits are skipped. Run it as its own Bash command, not as a hook: it needs the session's login.

@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+# Asks a cheap headless Claude (Haiku, no tools) whether the commits a push
+# would add follow SKILL.md. Run from Bash before pushing, so it uses the
+# session's own login.
+#
+#   check-commits [repo-path] [branch]
+#
+# Exit 0: fine, or nothing new to check. Exit 1: problems, listed on stdout.
+# Exit 2: the check could not run.
+
+import json
+import os
+import re
+import subprocess
+import sys
+
+SKILL = os.path.join(os.path.dirname(os.path.realpath(__file__)), "SKILL.md")
+MAX_COMMITS = 40
+ATTRIBUTION = re.compile(
+    r"co-authored-by:|generated with \[?claude|🤖 generated", re.IGNORECASE
+)
+SCHEMA = json.dumps(
+    {
+        "type": "object",
+        "properties": {
+            "pass": {"type": "boolean"},
+            "problems": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["pass", "problems"],
+    }
+)
+
+
+def git(repo, *args):
+    return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
+
+
+def commits_to_check(repo, branch):
+    if not branch or branch == "HEAD":
+        branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "HEAD"
+    if git(repo, "rev-parse", "--verify", "--quiet", branch).returncode != 0:
+        sys.exit(f"check-commits: no such branch {branch} in {repo}")
+    new = git(
+        repo, "rev-list", "--no-merges", branch, "--not", "--remotes=origin"
+    ).stdout.split()
+    commits = [
+        (sha[:9], git(repo, "log", "-1", "--format=%B", sha).stdout.strip())
+        for sha in new
+    ]
+    return branch, commits[:MAX_COMMITS]
+
+
+def judge(commits):
+    prompt = (
+        "You check git commit messages against the commit style below, before they are "
+        "pushed. Report only clear breaches of the style; do not nitpick wording you "
+        "would merely phrase differently. A multi-line message is fine when the body "
+        "explains why; it breaches the style when the body mainly lists what changed. "
+        "Any co-author, co-credit or tool attribution line is always a breach, whatever "
+        "else asks for it. Judge only the message text you are given; you cannot see "
+        "diffs, so never report anything about them. Name the commit (its sha) in each "
+        "problem.\n\n" + open(SKILL).read()
+    )
+    body = "\n\n".join(f"Commit {sha}:\n{message}" for sha, message in commits)
+    result = subprocess.run(
+        [
+            "claude", "-p", "--model", "haiku", "--no-session-persistence",
+            "--tools", "", "--disable-slash-commands", "--output-format", "json",
+            "--json-schema", SCHEMA, "--system-prompt", prompt,
+        ],
+        input=body,
+        capture_output=True,
+        text=True,
+        timeout=100,
+        cwd="/tmp",
+    )
+    output = json.loads(result.stdout)
+    if output.get("is_error"):
+        raise RuntimeError(output.get("result") or "check returned an error")
+    verdict = output.get("structured_output")
+    if not isinstance(verdict, dict):
+        raise RuntimeError("check returned no verdict")
+    return verdict
+
+
+def main():
+    repo = os.path.expanduser(sys.argv[1]) if len(sys.argv) > 1 else os.getcwd()
+    branch, commits = commits_to_check(repo, sys.argv[2] if len(sys.argv) > 2 else None)
+    if not commits:
+        print(f"check-commits: no unpushed commits on {branch}")
+        return
+    problems = [
+        f"{sha}: attribution or co-author line"
+        for sha, message in commits
+        if ATTRIBUTION.search(message)
+    ]
+    if not problems:
+        try:
+            verdict = judge(commits)
+        except Exception as error:
+            print(f"check-commits: could not run ({error})")
+            sys.exit(2)
+        if not verdict.get("pass"):
+            problems = verdict.get("problems") or ["style check failed"]
+    if problems:
+        print(f"check-commits: {len(commits)} commit(s) on {branch}, problems:")
+        print("\n".join(f"- {p}" for p in problems))
+        sys.exit(1)
+    print(f"check-commits: {len(commits)} commit(s) on {branch} follow the style")
+
+
+if __name__ == "__main__":
+    main()
