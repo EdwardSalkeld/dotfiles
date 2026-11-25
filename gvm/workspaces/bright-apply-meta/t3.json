@@ -1,0 +1,12 @@
+{
+	"$schema": "https://t3.codes/schema/t3.json",
+	"scripts": [
+		{
+			"name": "Set up repo worktrees",
+			"command": "~/personal/dotfiles/gvm/workspaces/setup-worktree",
+			"icon": "configure",
+			"runOnWorktreeCreate": true,
+			"async": false
+		}
+	]
+}

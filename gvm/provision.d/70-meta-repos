@@ -11,8 +11,8 @@ for template in "$templates"/*/; do
 		mkdir -p "$dir"
 		git -C "$dir" init -q -b main
 	fi
-	cp "$template"/{AGENTS.md,CLAUDE.md,repos,.gitignore} "$dir/"
-	git -C "$dir" add AGENTS.md CLAUDE.md repos .gitignore
+	cp "$template"/{AGENTS.md,CLAUDE.md,repos,.gitignore,t3.json} "$dir/"
+	git -C "$dir" add AGENTS.md CLAUDE.md repos .gitignore t3.json
 	if ! git -C "$dir" rev-parse -q --verify HEAD >/dev/null || ! git -C "$dir" diff --cached --quiet; then
 		git -C "$dir" commit -q -m "Sync workspace files from dotfiles"
 	fi
@@ -21,6 +21,6 @@ for template in "$templates"/*/; do
 			git clone -q "https://github.com/brightnetwork/$repo.git" "$HOME/workspace/$repo"
 		fi
 	done <"$dir/repos"
+	# `t3 project add` can't set actions: import the t3.json one in the project's settings
+	"$templates/t3-add-project" "$dir" "$(cat "$template/title")"
 done
-# T3's project list and scripts live in ~/.t3 and are lost on a rebuild. `t3 project
-# add` can't set the worktree setup script, so ask Claude in T3 to re-register these.

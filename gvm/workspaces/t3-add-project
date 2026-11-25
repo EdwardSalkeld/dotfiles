@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Usage: t3-add-project <dir> <title>
+# T3's project list lives in ~/.t3 and goes with a rebuild, so provision.d re-adds projects.
+# Adding an existing one fails with ProjectAlreadyExistsError, which is fine; the server may
+# still be starting during gvm up, so other failures are retried.
+set -uo pipefail
+
+command -v t3 >/dev/null || exit 0
+for _ in 1 2 3 4 5; do
+	out="$(t3 project add --title "$2" "$1" 2>&1)" && exit 0
+	case "$out" in *ProjectAlreadyExistsError*) exit 0 ;; esac
+	sleep 3
+done
+echo "t3: couldn't add $1: $(printf '%s\n' "$out" | grep -m1 ERROR)" >&2
