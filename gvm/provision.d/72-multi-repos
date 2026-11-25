@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Trial of T3's own multi-repo projects next to the meta repos (70-meta-repos): a plain
+# folder holding a clone of each repo is one project, and T3 makes each thread's worktrees
+# itself, so there's no setup action to import or approve.
+set -euo pipefail
+
+templates="$HOME/personal/dotfiles/gvm/workspaces"
+for template in "$templates"/*-meta/; do
+	name="$(basename "$template" -meta)"
+	dir="$HOME/workspace/$name-multi"
+	mkdir -p "$dir"
+	{
+		awk '/^## How this workspace works/{exit} {print}' "$template/AGENTS.md"
+		cat "$templates/multi-repo.md"
+	} >"$dir/AGENTS.md"
+	cp "$template/CLAUDE.md" "$dir/"
+	while read -r repo; do
+		if [ -n "$repo" ] && [ ! -d "$dir/$repo/.git" ]; then
+			git clone -q "https://github.com/brightnetwork/$repo.git" "$dir/$repo"
+		fi
+	done <"$template/repos"
+	"$templates/t3-add-project" "$dir" "$(cat "$template/title") (multi)"
+done
