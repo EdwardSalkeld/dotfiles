@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# gvm installs its uv tools before provision.d, so on a fresh box bci's git+ssh fetch
+# runs before 20-links puts the https rewrite in ~/.gitconfig, and fails (the box has
+# no GitHub ssh key). Spec copied from gaston's gvm/profiles/base.json5.
+set -euo pipefail
+
+if ! command -v bci >/dev/null; then
+	uv tool install -q git+ssh://git@github.com/brightnetwork/bright-ci
+fi
