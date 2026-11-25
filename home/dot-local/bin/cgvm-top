@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# At-a-glance dashboard for the gvm VM on the AI host Mac (cuckoo).
+#   cgvm-top            from any Mac: ssh to cuckoo and look through it
+#   cgvm-top local      on cuckoo itself
+#   cgvm-top user@host  another gvm host
+# Everything goes through the host's limactl, so it keeps working while the VM
+# is stopped, deleted or rebuilding, and shows it coming back.
+# Must stay bash 3.2 compatible: cuckoo runs it with macOS's /bin/bash.
+set -uo pipefail
+
+target="${1:-}"
+if [ -z "$target" ]; then
+	# cuckoo's account is edward.salkeld; this Mac's is edsalkeld
+	if [ "$(id -un)" = edward.salkeld ]; then target=local; else target=edward.salkeld@cuckoo.int.alcachofa.faith; fi
+fi
+interval="${CGVM_TOP_INTERVAL:-2}"
+vm="${CGVM_TOP_VM:-gvm}"
+
+guestprobe() {
+	# top's first pass averages over each process's lifetime; the second is current
+	snap="$(top -b -c -n 2 -d 0.5 -w 512 -o %CPU | awk '/^top -/{n++} n==2')"
+	printf '%s\n' "$snap" | awk '/^%Cpu/{for(i=1;i<NF;i++) if($(i+1) ~ /^id/) printf "cpu=%d\n", 100-$i+0.5}'
+	echo "ncpu=$(nproc)"
+	echo "up=$(cut -d. -f1 /proc/uptime)"
+	echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
+	free -b | awk '/^Mem:/{print "mem_total="$2; print "mem_used="$2-$7} /^Swap:/{print "swap_total="$2; print "swap_used="$3}'
+	df -B1 --output=size,used,avail / | awk 'NR==2{print "disk_total="$1; print "disk_used="$2; print "disk_avail="$3}'
+	echo "t3=$(systemctl --user is-active t3code 2>/dev/null)"
+	echo "ts=$(tailscale status --self --peers=false 2>/dev/null | awk 'NR==1{print $2" "$1}')"
+	args="$(ps -eo args=)"
+	echo "claude=$(printf '%s\n' "$args" | awk '{print $1}' | grep -cE '(/claude$|^claude$|/ccd-cli/)')"
+	echo "codex=$(printf '%s\n' "$args" | awk '{print $1}' | grep -cE '(/codex$|^codex$)')"
+	echo "containers=$(pgrep -c conmon)"
+	echo "ssh=$(who | wc -l)"
+	printf '%s\n' "$snap" | awk '
+		p && $12 != "top" && $12 !~ /^\[/ && !($12 == "bash" && $13 == "-s") {
+			cmd = $12; for (i = 13; i <= NF; i++) cmd = cmd " " $i
+			printf "%7s %5s %4s %10s %s\n", $1, $9, $10, $11, substr(cmd, 1, 80)
+		}
+		/^ *PID /{p=1}' | sort -k2,2rn -k3,3rn | head -6 | sed 's/^/proc=/'
+}
+
+hostprobe() {
+	PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+	echo "h_load=$(sysctl -n vm.loadavg | tr -d '{}' | awk '{print $1" "$2" "$3}')"
+	df -k /System/Volumes/Data | awk 'NR==2{print "h_disk_avail="$4*1024; print "h_disk_total="$2*1024}'
+	st="$(limactl list --format '{{.Status}}' "$1" 2>/dev/null)"
+	echo "vm=${st:-Absent}"
+	[ -n "$st" ] && echo "vm_spec=$(limactl list --format '{{.CPUs}} {{.Memory}} {{.Disk}}' "$1" 2>/dev/null)"
+	echo "h_ops=$(pgrep -fl 'gvm (up|down|update)|limactl (start|stop|delete|create|edit)' | cut -d' ' -f2- | tr '\n' ';')"
+	if [ "$st" = Running ]; then
+		# limactl shell can hang while the guest boots
+		if out="$(perl -e 'alarm shift; exec @ARGV' 8 limactl shell --workdir / "$1" -- bash -s 2>/dev/null <<<"$(declare -f guestprobe); guestprobe")"; then
+			echo "guest=ok"
+			printf '%s\n' "$out"
+		else
+			echo "guest=no answer"
+		fi
+	fi
+}
+
+probe() {
+	local script
+	script="$(declare -f guestprobe hostprobe); hostprobe $vm"
+	if [ "$target" = local ]; then
+		bash -s <<<"$script"
+	else
+		ssh -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "$target" bash -s <<<"$script" 2>/dev/null
+	fi
+}
+
+if [ -t 1 ]; then
+	R=$'\033[31m' G=$'\033[32m' Y=$'\033[33m' D=$'\033[2m' B=$'\033[1m' N=$'\033[0m'
+else
+	R= G= Y= D= B= N=
+fi
+
+human() {
+	awk -v b="${1:-0}" 'BEGIN{split("B K M G T",u," ");i=1;while(b>=1024&&i<5){b/=1024;i++};printf (i>3?"%.1f%s":"%.0f%s"),b,u[i]}'
+}
+
+dur() {
+	local s="${1:-0}"
+	if [ "$s" -ge 86400 ]; then
+		printf '%dd %dh' $((s / 86400)) $((s % 86400 / 3600))
+	elif [ "$s" -ge 3600 ]; then
+		printf '%dh %dm' $((s / 3600)) $((s % 3600 / 60))
+	else
+		printf '%dm %ds' $((s / 60)) $((s % 60))
+	fi
+}
+
+colour() { # pct
+	if [ "$1" -ge 90 ]; then printf '%s' "$R"; elif [ "$1" -ge 70 ]; then printf '%s' "$Y"; else printf '%s' "$G"; fi
+}
+
+bar() { # pct
+	local p="$1" w=30 f i out=""
+	[ "$p" -gt 100 ] && p=100
+	f=$((p * w / 100))
+	for ((i = 0; i < w; i++)); do
+		if [ "$i" -lt "$f" ]; then out="$out█"; else out="$out░"; fi
+	done
+	printf '%s%s%s %3d%%' "$(colour "$p")" "$out" "$N" "$p"
+}
+
+pct() { [ "${2:-0}" -gt 0 ] && echo $(($1 * 100 / $2)) || echo 0; }
+
+rule="${D}────────────────────────────────────────────────────────────────────${N}"
+last_ok=""
+last_state=""
+since=$(date +%s)
+
+trap 'tput cnorm 2>/dev/null; printf "\n"; exit' INT TERM
+tput civis 2>/dev/null
+clear
+
+while :; do
+	data="$(probe)"
+	rc=$?
+	vm_state= vm_spec= guest= h_load= h_disk_avail= h_disk_total= h_ops=
+	cpu=0 ncpu= up=0 load= mem_total=0 mem_used=0 swap_total=0 swap_used=0
+	disk_total=0 disk_used=0 disk_avail=0 t3= ts= claude= codex= containers= ssh=
+	procs=""
+	while IFS= read -r line; do
+		k="${line%%=*}" v="${line#*=}"
+		case "$k" in
+		vm) vm_state="$v" ;;
+		proc) procs="$procs$v"$'\n' ;;
+		vm_spec | guest | h_load | h_disk_avail | h_disk_total | h_ops | cpu | ncpu | up | load | \
+			mem_total | mem_used | swap_total | swap_used | disk_total | disk_used | disk_avail | \
+			t3 | ts | claude | codex | containers | ssh) printf -v "$k" '%s' "$v" ;;
+		esac
+	done <<<"$data"
+
+	now=$(date +%s)
+	if [ "$rc" -ne 0 ] || [ -z "$vm_state" ]; then
+		state="host unreachable"
+	elif [ "$vm_state" != Running ]; then
+		state="vm $vm_state"
+	elif [ "$guest" != ok ]; then
+		state="guest $guest"
+	else
+		state=ok
+		last_ok=$now
+	fi
+	[ "$state" != "$last_state" ] && since=$now && last_state="$state"
+
+	frame="${B}CGVM${N}  ${D}via ${target}${N}"$'\n'
+	frame="$frame$(date +%T)  ${D}every ${interval}s, ctrl-c to quit${N}"$'\n'"$rule"$'\n'
+
+	if [ "$state" = "host unreachable" ]; then
+		frame="$frame${R}${B}host unreachable${N} for $(dur $((now - since)))"$'\n'
+	else
+		frame="${frame}host   load ${h_load}   disk free $(human "$h_disk_avail") of $(human "$h_disk_total")"$'\n'
+		if [ -n "$vm_spec" ]; then
+			set -- $vm_spec
+			spec="$1 cpu  $(human "$2") mem  $(human "$3") disk"
+		else
+			spec=""
+		fi
+		if [ "$state" = ok ]; then
+			frame="${frame}vm     ${G}${B}Running${N}   ${D}${spec}${N}"$'\n'
+		else
+			frame="${frame}vm     ${R}${B}${state}${N} for $(dur $((now - since)))   ${D}${spec}${N}"$'\n'
+		fi
+		[ -n "${h_ops%;}" ] && frame="${frame}${Y}busy   ${h_ops%;}${N}"$'\n'
+	fi
+	frame="$frame$rule"$'\n'
+
+	if [ "$state" = ok ]; then
+		frame="${frame}up     $(dur "$up")     load $load  ${D}(${ncpu} cpu)${N}"$'\n'
+		frame="${frame}cpu    $(bar "$cpu")"$'\n'
+		frame="${frame}mem    $(bar "$(pct "$mem_used" "$mem_total")")  $(human "$mem_used") / $(human "$mem_total")"$'\n'
+		frame="${frame}disk   $(bar "$(pct "$disk_used" "$disk_total")")  $(human "$disk_avail") free of $(human "$disk_total")"$'\n'
+		if [ "$swap_total" -gt 0 ]; then
+			frame="${frame}swap   $(bar "$(pct "$swap_used" "$swap_total")")  $(human "$swap_used") / $(human "$swap_total")"$'\n'
+		fi
+		frame="$frame$rule"$'\n'
+		if [ "$t3" = active ]; then t3c="$G$t3$N"; else t3c="$R${t3:-down}$N"; fi
+		if [ -n "$ts" ]; then tsc="$G$ts$N"; else tsc="${R}down$N"; fi
+		frame="${frame}t3code ${t3c}    tailscale ${tsc}"$'\n'
+		frame="${frame}agents claude ${claude}  codex ${codex}    containers ${containers}    ssh logins ${ssh}"$'\n'
+		frame="$frame$rule"$'\n'
+		frame="${frame}${D}    PID  CPU% MEM%   CPU TIME COMMAND${N}"$'\n'
+		frame="$frame$procs"
+	elif [ -n "$last_ok" ]; then
+		frame="${frame}${D}last healthy $(dur $((now - last_ok))) ago${N}"$'\n'
+	fi
+
+	printf '\033[H%s\033[J' "$frame"
+	sleep "$interval"
+done
