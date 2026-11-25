@@ -41,13 +41,14 @@ guestprobe() {
 }
 
 hostprobe() {
-	PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+	PATH="/opt/homebrew/bin:/usr/local/bin:/usr/sbin:/sbin:$PATH"
 	echo "h_load=$(sysctl -n vm.loadavg | tr -d '{}' | awk '{print $1" "$2" "$3}')"
 	df -k /System/Volumes/Data | awk 'NR==2{print "h_disk_avail="$4*1024; print "h_disk_total="$2*1024}'
 	st="$(limactl list --format '{{.Status}}' "$1" 2>/dev/null)"
 	echo "vm=${st:-Absent}"
 	[ -n "$st" ] && echo "vm_spec=$(limactl list --format '{{.CPUs}} {{.Memory}} {{.Disk}}' "$1" 2>/dev/null)"
-	echo "h_ops=$(pgrep -fl 'gvm (up|down|update)|limactl (start|stop|delete|create|edit)' | cut -d' ' -f2- | tr '\n' ';')"
+	# Anchored so shells whose command text merely mentions gvm (e.g. over ssh) don't count
+	echo "h_ops=$(pgrep -fl '^(bun )?[^ ]*gvm (up|down|update)|^[^ ]*limactl (start|stop|delete|create|edit)' | cut -d' ' -f2- | tr '\n' ';')"
 	if [ "$st" = Running ]; then
 		# limactl shell can hang while the guest boots
 		if out="$(perl -e 'alarm shift; exec @ARGV' 8 limactl shell --workdir / "$1" -- bash -s 2>/dev/null <<<"$(declare -f guestprobe); guestprobe")"; then
@@ -99,7 +100,8 @@ bar() { # pct
 	[ "$p" -gt 100 ] && p=100
 	f=$((p * w / 100))
 	for ((i = 0; i < w; i++)); do
-		if [ "$i" -lt "$f" ]; then out="$out█"; else out="$out░"; fi
+		# Braces matter: bash 3.2 in a C locale reads the glyph's first byte as part of the name
+		if [ "$i" -lt "$f" ]; then out="${out}█"; else out="${out}░"; fi
 	done
 	printf '%s%s%s %3d%%' "$(colour "$p")" "$out" "$N" "$p"
 }
@@ -134,6 +136,9 @@ while :; do
 	done <<<"$data"
 
 	now=$(date +%s)
+	cols=$(tput cols 2>/dev/null || echo 120)
+	procs="$(printf '%s' "$procs" | cut -c1-"$cols")"$'\n'
+	h_ops="$(printf '%s' "${h_ops%;}" | cut -c1-$((cols - 8)))"
 	if [ "$rc" -ne 0 ] || [ -z "$vm_state" ]; then
 		state="host unreachable"
 	elif [ "$vm_state" != Running ]; then
@@ -164,7 +169,7 @@ while :; do
 		else
 			frame="${frame}vm     ${R}${B}${state}${N} for $(dur $((now - since)))   ${D}${spec}${N}"$'\n'
 		fi
-		[ -n "${h_ops%;}" ] && frame="${frame}${Y}busy   ${h_ops%;}${N}"$'\n'
+		[ -n "$h_ops" ] && frame="${frame}${Y}busy   ${h_ops}${N}"$'\n'
 	fi
 	frame="$frame$rule"$'\n'
 
@@ -188,6 +193,7 @@ while :; do
 		frame="${frame}${D}last healthy $(dur $((now - last_ok))) ago${N}"$'\n'
 	fi
 
-	printf '\033[H%s\033[J' "$frame"
+	# Clear each line's tail, or a shorter line leaves the end of the last frame's behind
+	printf '\033[H%s\033[J' "${frame//$'\n'/$'\033[K\n'}"
 	sleep "$interval"
 done
